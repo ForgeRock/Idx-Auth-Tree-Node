@@ -310,9 +310,17 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+  <distributionManagement>
+    <repository>
+      <id>forgerock-internal-snapshots</id>
+      <name>ForgeRock Internal Snapshots Repository</name>
+      <url>https://maven.forgerock.org/repo/internal-snapshots</url>
+    </repository>
+  </distributionManagement>
   <properties>
     <identityx.version>4.5.2.4</identityx.version>
     <maven.compiler.target>11</maven.compiler.target>
+    <forgerockDistMgmtReleasesUrl>https://maven.forgerock.org/repo/internal-releases</forgerockDistMgmtReleasesUrl>
     <am.version>7.1.0</am.version>
     <maven.compiler.source>11</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
