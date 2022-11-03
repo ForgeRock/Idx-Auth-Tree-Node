@@ -41,8 +41,10 @@ import javax.inject.Inject;
 import javax.security.auth.callback.ConfirmationCallback;
 import javax.security.auth.callback.TextOutputCallback;
 
-@Node.Metadata(outcomeProvider = IdxSponsorOutcomeProvider.class, configClass = Config.class, tags = {"mfa", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = IdxSponsorOutcomeProvider.class, configClass = Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxSponsorUser implements Node {
+
+	private String loggerPrefix = "[IdentityX Sponsor User Node][Partner] ";
 
     /**
      * Configuration for the node.
@@ -112,67 +114,76 @@ public class IdxSponsorUser implements Node {
     }
 
     @Override
-    public Action process(TreeContext context) throws NodeProcessException {
-        JsonValue sharedState = context.sharedState;
-        String qrText;
+    public Action process(TreeContext context){
+    	try {
+	        JsonValue sharedState = context.sharedState;
+	        String qrText;
+	
+	        //check for callback from the cancel button
+	        Optional<ConfirmationCallback> confirmationCallback = context.getCallback(ConfirmationCallback.class);
+	
+	        if (confirmationCallback.isPresent()) {
+	            int index = confirmationCallback.get().getSelectedIndex();
+	            if (index == 0) {
+	                //user clicked cancel button
+	                logger.debug("User clicked cancel");
+	                sharedState.remove(IDX_POLL_TIMES);
+	                sharedState.remove(IDX_SPONSORSHIP_HREF);
+	                sharedState.remove(IDX_QR_KEY);
+	                return goTo(IdxSponsorOutcome.CANCEL.name()).replaceSharedState(sharedState).build();
+	            } else if (index == 1) {
+	                logger.debug("User clicked Email QR button");
+	                //the false output should be wired to a node which sends the email
+	                return goTo(IdxSponsorOutcome.EMAIL.name()).build();
+	            }
+	        }
+	
+	
+	        TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+	
+	        String username = sharedState.get("IdxKeyUserName").asString();
+	        if (username == null) {
+	            String errorMessage = "Error: IdxKeyUserName not found in sharedState! Make sure " +
+	                    "IdxCheckEnrollmentStatus node is in the tree!";
+	            logger.error(errorMessage);
+	            throw new NodeProcessException(errorMessage);
+	        }
+	
+	        if (!sharedState.isDefined(IDX_QR_KEY)) {
+	
+	           logger.debug("Entering into Sponsor User for the first time for user: [{}]", username);
+	
+	
+	            sharedState.put(IDX_POLL_TIMES, config.numberOfTimesToPoll());
+	
+	            qrText = getQRText(tenantRepoFactory, username);
+	
+	            sharedState.put(IDX_SPONSORSHIP_HREF, sponsorshipHref);
+	
+	            String qrCallback = GenerationUtils.getQRCodeGenerationJavascript("callback_0", qrText,
+	                    20, ErrorCorrectionLevel.LOW);
+	
+	            sharedState.put(IDX_QR_KEY, qrCallback);
+	
+	            return buildResponse(sharedState);
+	
+	        }
+	        if (isEnrolled(sharedState, tenantRepoFactory)) {
+	            logger.debug("Enrollment Successful for: [{}]", username);
+	            // If enrollment is successful send user to next node
+	            return goTo(IdxSponsorOutcome.TRUE.name()).build();
+	        }
+	
+	        // Build the callbacks and decrement from our configured number of poll times
+	        return buildResponse(sharedState);
+    	}
+		catch (Exception ex) {
+            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+            ex.printStackTrace();
+            context.sharedState.put("Exception", ex.toString());
+            return Action.goTo("error").build();
 
-        //check for callback from the cancel button
-        Optional<ConfirmationCallback> confirmationCallback = context.getCallback(ConfirmationCallback.class);
-
-        if (confirmationCallback.isPresent()) {
-            int index = confirmationCallback.get().getSelectedIndex();
-            if (index == 0) {
-                //user clicked cancel button
-                logger.debug("User clicked cancel");
-                sharedState.remove(IDX_POLL_TIMES);
-                sharedState.remove(IDX_SPONSORSHIP_HREF);
-                sharedState.remove(IDX_QR_KEY);
-                return goTo(IdxSponsorOutcome.CANCEL.name()).replaceSharedState(sharedState).build();
-            } else if (index == 1) {
-                logger.debug("User clicked Email QR button");
-                //the false output should be wired to a node which sends the email
-                return goTo(IdxSponsorOutcome.EMAIL.name()).build();
-            }
-        }
-
-
-        TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
-
-        String username = sharedState.get("IdxKeyUserName").asString();
-        if (username == null) {
-            String errorMessage = "Error: IdxKeyUserName not found in sharedState! Make sure " +
-                    "IdxCheckEnrollmentStatus node is in the tree!";
-            logger.error(errorMessage);
-            throw new NodeProcessException(errorMessage);
-        }
-
-        if (!sharedState.isDefined(IDX_QR_KEY)) {
-
-           logger.debug("Entering into Sponsor User for the first time for user: [{}]", username);
-
-
-            sharedState.put(IDX_POLL_TIMES, config.numberOfTimesToPoll());
-
-            qrText = getQRText(tenantRepoFactory, username);
-
-            sharedState.put(IDX_SPONSORSHIP_HREF, sponsorshipHref);
-
-            String qrCallback = GenerationUtils.getQRCodeGenerationJavascript("callback_0", qrText,
-                    20, ErrorCorrectionLevel.LOW);
-
-            sharedState.put(IDX_QR_KEY, qrCallback);
-
-            return buildResponse(sharedState);
-
-        }
-        if (isEnrolled(sharedState, tenantRepoFactory)) {
-            logger.debug("Enrollment Successful for: [{}]", username);
-            // If enrollment is successful send user to next node
-            return goTo(IdxSponsorOutcome.TRUE.name()).build();
-        }
-
-        // Build the callbacks and decrement from our configured number of poll times
-        return buildResponse(sharedState);
+		}
 
     }
 

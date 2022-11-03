@@ -35,13 +35,15 @@ import org.forgerock.util.i18n.PreferredLocales;
  * A node that checks user authentication status in IdentityX
  */
 @Node.Metadata(outcomeProvider  = IdxAuthStatusNode.IdxAuthStatusOutcomeProvider.class,
-               configClass      = IdxAuthStatusNode.Config.class, tags = {"mfa", "multi-factor authentication"})
+               configClass      = IdxAuthStatusNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxAuthStatusNode implements Node {
 
     private static final String PENDING = "Pending";
     private static final String SUCCESS = "Success";
     private static final String FAILED = "Failed";
     private static final String EXPIRED = "Expired";
+    private String loggerPrefix = "[IdentityX Auth Request Decision Node][Partner] ";
+
 
     private static LoggerWrapper logger = new LoggerWrapper();
 
@@ -60,43 +62,52 @@ public class IdxAuthStatusNode implements Node {
     }
 
     @Override
-    public Action process(TreeContext context) throws NodeProcessException {
+    public Action process(TreeContext context) {
+    	try {
+    	
+	        String username = context.sharedState.get("IdxKeyUserName").asString();
+	        if (username == null) {
+	            String errorMessage = "Error: IdxKeyUserName not found in sharedState! Make sure " +
+	                    "IdxCheckEnrollmentStatus node is in the tree!";
+	            logger.error(loggerPrefix + errorMessage);
+	            throw new NodeProcessException(errorMessage);
+	        }
+	
+	        TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+	
+	        //call API to check status. Return true, false or pending
+	        //get the authHref value from sharedState
+	        String authHref = context.sharedState.get(IDX_HREF_KEY).asString();
+	        
+	        if (authHref == null) {
+	            logger.error(loggerPrefix + "Error: href not found in SharedState!");
+	            throw new NodeProcessException("Unable to authenticate - HREF not found!");
+	        }
+	
+	        String status = getAuthenticationRequestStatus(authHref, tenantRepoFactory);
+	        
+	        logger.debug(loggerPrefix + "Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(authHref));
+	        
+	        if(status.equalsIgnoreCase("COMPLETED_SUCCESSFUL")) {
+	            return goTo(SUCCESS).build();
+	        }
+	        else if (status.equalsIgnoreCase("PENDING")) {
+	            return goTo(PENDING).build();
+	        }
+	        else if (status.equalsIgnoreCase("EXPIRED")) {
+	            return goTo(EXPIRED).build();
+	        }
+	        else {
+	            return goTo(FAILED).build();
+	        }
+    	}
+    	catch (Exception ex) {
+            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+            ex.printStackTrace();
+            context.sharedState.put("Exception", ex.toString());
+            return Action.goTo("error").build();
 
-        String username = context.sharedState.get("IdxKeyUserName").asString();
-        if (username == null) {
-            String errorMessage = "Error: IdxKeyUserName not found in sharedState! Make sure " +
-                    "IdxCheckEnrollmentStatus node is in the tree!";
-            logger.error(errorMessage);
-            throw new NodeProcessException(errorMessage);
-        }
-
-        TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
-
-        //call API to check status. Return true, false or pending
-        //get the authHref value from sharedState
-        String authHref = context.sharedState.get(IDX_HREF_KEY).asString();
-        
-        if (authHref == null) {
-            logger.error("Error: href not found in SharedState!");
-            throw new NodeProcessException("Unable to authenticate - HREF not found!");
-        }
-
-        String status = getAuthenticationRequestStatus(authHref, tenantRepoFactory);
-        
-        logger.debug("Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(authHref));
-        
-        if(status.equalsIgnoreCase("COMPLETED_SUCCESSFUL")) {
-            return goTo(SUCCESS).build();
-        }
-        else if (status.equalsIgnoreCase("PENDING")) {
-            return goTo(PENDING).build();
-        }
-        else if (status.equalsIgnoreCase("EXPIRED")) {
-            return goTo(EXPIRED).build();
-        }
-        else {
-            return goTo(FAILED).build();
-        }
+		}
     }
 
     private String getAuthenticationRequestStatus(String authRequestHref, TenantRepoFactory tenantRepoFactory) throws
@@ -108,11 +119,11 @@ public class IdxAuthStatusNode implements Node {
         try {
             request = authenticationRequestRepo.get(authRequestHref);
         } catch (IdxRestException e) {
-            logger.debug("An exception occurred while attempting to determine the status of the authentication " +
+            logger.debug(loggerPrefix + "An exception occurred while attempting to determine the status of the authentication " +
                     "request.  Exception: " + e.getMessage());
             throw new NodeProcessException(e);
         }
-        logger.debug("Retrieving an AuthenticationRequest with an HREF of " + authRequestHref);
+        logger.debug(loggerPrefix + "Retrieving an AuthenticationRequest with an HREF of " + authRequestHref);
         return request.getStatus().toString();
 	}
 

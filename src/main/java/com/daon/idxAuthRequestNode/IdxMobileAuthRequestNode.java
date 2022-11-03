@@ -34,9 +34,11 @@ import javax.security.auth.callback.TextOutputCallback;
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"mfa", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Node][Partner] ";
+	
 	/**
 	 * Configuration for the node.
 	 */
@@ -82,63 +84,71 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 	}
 
 	@Override
-	public Action process(TreeContext context) throws NodeProcessException {
-		
-		Optional<TextOutputCallback> textOutputCallbackOptional = context.getCallback(TextOutputCallback.class);
-		Optional<TextInputCallback> textInputCallbackOptional = context.getCallback(TextInputCallback.class);
-		
-		JsonValue sharedState = context.sharedState;
-		
-		String authHref = sharedState.get(IdxCommon.IDX_HREF_KEY).asString();
-		logger.debug("AuthenticationRequestHref={}", authHref);
-		
-		if (context.hasCallbacks() && textOutputCallbackOptional.isPresent() && textInputCallbackOptional.isPresent()) {	
-			logger.debug("==> Going to Next State ==>");
-			return goToNext()
-				.replaceSharedState(sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText()))
-				.build();
+	public Action process(TreeContext context) {
+		try {
+			Optional<TextOutputCallback> textOutputCallbackOptional = context.getCallback(TextOutputCallback.class);
+			Optional<TextInputCallback> textInputCallbackOptional = context.getCallback(TextInputCallback.class);
+			
+			JsonValue sharedState = context.sharedState;
+			
+			String authHref = sharedState.get(IdxCommon.IDX_HREF_KEY).asString();
+			logger.debug("AuthenticationRequestHref={}", authHref);
+			
+			if (context.hasCallbacks() && textOutputCallbackOptional.isPresent() && textInputCallbackOptional.isPresent()) {	
+				logger.debug("==> Going to Next State ==>");
+				return goToNext()
+					.replaceSharedState(sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText()))
+					.build();
+			}
+			
+			String userId = context.sharedState.get(IdxCommon.IDX_USER_ID_KEY).asString();
+			
+			if (TextUtils.isBlank(userId)) {
+				throw new NodeProcessException("UserId cannot be blank");
+			}
+			
+			AuthenticationRequest finalRequest = null;
+			
+			if (TextUtils.isBlank(authHref)) {
+				finalRequest = createAuthRequest(context, userId);
+			} else {
+				finalRequest = getAuthRequest(context, authHref);
+			}
+			
+			List<Callback> callbacks = new ArrayList<>();
+			String adosAuthResponse = sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
+			
+			
+			final JsonValue json = json(object(
+					field("href", finalRequest.getHref()), 
+					field("id", finalRequest.getId()),
+					field("fidoChallenge", finalRequest.getFidoChallenge()),
+					field("fidoAuthenticationRequest", finalRequest.getFidoAuthenticationRequest())));
+			
+			if (!(TextUtils.isEmpty(adosAuthResponse))) {
+				logger.debug("ADoS Tree Operation Adding fidoAuthenticationResponse to callback json");
+				json.put("fidoAuthenticationResponse", adosAuthResponse);			
+				json.put("fidoResponseCode", finalRequest.getFidoResponseCode());
+				json.put("fidoResponseMsg", finalRequest.getFidoResponseMsg());
+			}
+			
+			callbacks.add(new TextInputCallback("Please provide the Daon Fido Response", "{}"));
+			callbacks.add(new TextOutputCallback(TextOutputCallback.INFORMATION, json.toString()));
+	
+			return Action.send(callbacks)
+					.replaceSharedState(context.sharedState.put(IdxCommon.IDX_HREF_KEY, finalRequest.getHref()))
+					.build();
 		}
-		
-		String userId = context.sharedState.get(IdxCommon.IDX_USER_ID_KEY).asString();
-		
-		if (TextUtils.isBlank(userId)) {
-			throw new NodeProcessException("UserId cannot be blank");
-		}
-		
-		AuthenticationRequest finalRequest = null;
-		
-		if (TextUtils.isBlank(authHref)) {
-			finalRequest = createAuthRequest(context, userId);
-		} else {
-			finalRequest = getAuthRequest(context, authHref);
-		}
-		
-		List<Callback> callbacks = new ArrayList<>();
-		String adosAuthResponse = sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
-		
-		
-		final JsonValue json = json(object(
-				field("href", finalRequest.getHref()), 
-				field("id", finalRequest.getId()),
-				field("fidoChallenge", finalRequest.getFidoChallenge()),
-				field("fidoAuthenticationRequest", finalRequest.getFidoAuthenticationRequest())));
-		
-		if (!(TextUtils.isEmpty(adosAuthResponse))) {
-			logger.debug("ADoS Tree Operation Adding fidoAuthenticationResponse to callback json");
-			json.put("fidoAuthenticationResponse", adosAuthResponse);			
-			json.put("fidoResponseCode", finalRequest.getFidoResponseCode());
-			json.put("fidoResponseMsg", finalRequest.getFidoResponseMsg());
-		}
-		
-		callbacks.add(new TextInputCallback("Please provide the Daon Fido Response", "{}"));
-		callbacks.add(new TextOutputCallback(TextOutputCallback.INFORMATION, json.toString()));
+		catch (Exception ex) {
+            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+            ex.printStackTrace();
+            context.sharedState.put("Exception", ex.toString());
+            return Action.goTo("error").build();
 
-		return Action.send(callbacks)
-				.replaceSharedState(context.sharedState.put(IdxCommon.IDX_HREF_KEY, finalRequest.getHref()))
-				.build();
+		}
 	}
 	
-	private AuthenticationRequest createAuthRequest(TreeContext context, String userId) throws NodeProcessException {
+	private AuthenticationRequest createAuthRequest(TreeContext context, String userId) throws Exception {
 		
 		logger.info("Entering createAuthRequest");
 		
@@ -176,7 +186,7 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 		return request;
 	}
 	
-	private AuthenticationRequest getAuthRequest(TreeContext context, String authRequestHref) throws NodeProcessException {
+	private AuthenticationRequest getAuthRequest(TreeContext context, String authRequestHref) throws Exception {
 		
 		logger.info("Entering getAuthRequest");
 		

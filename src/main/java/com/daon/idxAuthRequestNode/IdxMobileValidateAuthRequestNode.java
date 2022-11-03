@@ -25,10 +25,12 @@ import com.sun.identity.sm.RequiredValueValidator;
 /**
  * A node that validates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = AbstractDecisionNode.OutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"mfa", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = AbstractDecisionNode.OutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate Node][Partner] ";
+
 	
 	public interface Config {
 		
@@ -49,45 +51,53 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
     }
 
 	@Override
-	public Action process(TreeContext context) throws NodeProcessException {
-		
-		String test = null;
-		JSONObject obj = null;
-		boolean isJsonOk = false;
-
+	public Action process(TreeContext context) {
 		try {
-			obj = new JSONObject(context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString());
-			logger.debug("Json={}", obj.toString());
-		} catch (JSONException e) {
-			logger.warn("Cannot cast SharedState Key = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_KEY, e.getMessage());
-		}
-
-		if (obj != null) {
-			
+			String test = null;
+			JSONObject obj = null;
+			boolean isJsonOk = false;
+	
 			try {
-				test = obj.getString(IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME);
-				isJsonOk = true;
+				obj = new JSONObject(context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString());
+				logger.debug("Json={}", obj.toString());
 			} catch (JSONException e) {
-				logger.warn("Cannot cast JSON Object Property = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME, e.getMessage());
+				logger.warn("Cannot cast SharedState Key = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_KEY, e.getMessage());
 			}
+	
+			if (obj != null) {
+				
+				try {
+					test = obj.getString(IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME);
+					isJsonOk = true;
+				} catch (JSONException e) {
+					logger.warn("Cannot cast JSON Object Property = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME, e.getMessage());
+				}
+			}
+	
+			logger.debug("Test={}", test);
+	
+			if (TextUtils.isEmpty(test) || !isJsonOk) {
+				test = context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
+				logger.debug("Using-Postman={}", test);
+			}
+	
+			if (validateAuthResponse(test, context)) {
+				return goTo(true)
+						.replaceSharedState(context.sharedState)				
+						.build();
+			}
+			return goTo(false).build();
 		}
+		catch (Exception ex) {
+            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+            ex.printStackTrace();
+            context.sharedState.put("Exception", ex.toString());
+            return Action.goTo("error").build();
 
-		logger.debug("Test={}", test);
-
-		if (TextUtils.isEmpty(test) || !isJsonOk) {
-			test = context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
-			logger.debug("Using-Postman={}", test);
 		}
-
-		if (validateAuthResponse(test, context)) {
-			return goTo(true)
-					.replaceSharedState(context.sharedState)				
-					.build();
-		}
-		return goTo(false).build();
 	}
 
-	private boolean validateAuthResponse(String authResponse, TreeContext context) throws NodeProcessException {
+	private boolean validateAuthResponse(String authResponse, TreeContext context) throws Exception {
 
 		// Call API to check status. Return true, false or pending get the authHref value from sharedState
 		String authHref = context.sharedState.get(IdxCommon.IDX_HREF_KEY).asString();

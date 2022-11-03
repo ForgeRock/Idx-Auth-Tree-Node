@@ -45,9 +45,11 @@ import org.forgerock.openam.auth.node.api.*;
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"mfa", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxAuthRequestNode extends SingleOutcomeNode {
 
+    private String loggerPrefix = "[IdentityX Auth Request Initiator Node][Partner] ";
+	
 	/**
 	 * Configuration for the node.
 	 */
@@ -97,26 +99,35 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 	}
 
     @Override
-    public Action process(TreeContext context) throws NodeProcessException {
+    public Action process(TreeContext context){
     	User user;
-		try {
-			user = objectMapper.readValue(context.sharedState.get(IdxCommon.IDX_USER_KEY).asString(), User.class);
-		} catch (IOException e) {
-			logger.error("Can't find user in SharedState");
-			throw new NodeProcessException(e);
-		}
-
-		TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
-		logger.debug("Connected to the IdentityX Server");
-
-		String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory);
-		logger.debug("Auth href: " + authHref);
-
-    	//Place the href value in sharedState
-    	logger.debug("Setting auth URL in shared state...");
-		JsonValue newState = context.sharedState.copy().put(IdxCommon.IDX_HREF_KEY, authHref);
-
-    	return goToNext().replaceSharedState(newState).build();
+    	
+    	try {
+			try {
+				user = objectMapper.readValue(context.sharedState.get(IdxCommon.IDX_USER_KEY).asString(), User.class);
+			} catch (IOException e) {
+				logger.error("Can't find user in SharedState");
+				throw new NodeProcessException(e);
+			}
+	
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+			logger.debug("Connected to the IdentityX Server");
+	
+			String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory);
+			logger.debug("Auth href: " + authHref);
+	
+	    	//Place the href value in sharedState
+	    	logger.debug("Setting auth URL in shared state...");
+			JsonValue newState = context.sharedState.copy().put(IdxCommon.IDX_HREF_KEY, authHref);
+	
+	    	return goToNext().replaceSharedState(newState).build();
+	    }
+    	catch (Exception ex) {
+            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+            ex.printStackTrace();
+            context.sharedState.put("Exception", ex.toString());
+            return Action.goTo("error").build();
+    	}
     }
 
 	private String generateAuthenticationRequest(User user, String policyName, TenantRepoFactory
