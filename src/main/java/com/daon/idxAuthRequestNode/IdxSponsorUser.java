@@ -126,13 +126,13 @@ public class IdxSponsorUser implements Node {
 	            int index = confirmationCallback.get().getSelectedIndex();
 	            if (index == 0) {
 	                //user clicked cancel button
-	                logger.debug("User clicked cancel");
+	                logger.debug(loggerPrefix + "User clicked cancel");
 	                sharedState.remove(IDX_POLL_TIMES);
 	                sharedState.remove(IDX_SPONSORSHIP_HREF);
 	                sharedState.remove(IDX_QR_KEY);
 	                return goTo(IdxSponsorOutcome.CANCEL.name()).replaceSharedState(sharedState).build();
 	            } else if (index == 1) {
-	                logger.debug("User clicked Email QR button");
+	                logger.debug(loggerPrefix + "User clicked Email QR button");
 	                //the false output should be wired to a node which sends the email
 	                return goTo(IdxSponsorOutcome.EMAIL.name()).build();
 	            }
@@ -143,7 +143,7 @@ public class IdxSponsorUser implements Node {
 	
 	        String username = sharedState.get("IdxKeyUserName").asString();
 	        if (username == null) {
-	            String errorMessage = "Error: IdxKeyUserName not found in sharedState! Make sure " +
+	            String errorMessage = loggerPrefix + "Error: IdxKeyUserName not found in sharedState! Make sure " +
 	                    "IdxCheckEnrollmentStatus node is in the tree!";
 	            logger.error(errorMessage);
 	            throw new NodeProcessException(errorMessage);
@@ -151,7 +151,7 @@ public class IdxSponsorUser implements Node {
 	
 	        if (!sharedState.isDefined(IDX_QR_KEY)) {
 	
-	           logger.debug("Entering into Sponsor User for the first time for user: [{}]", username);
+	           logger.debug(loggerPrefix + "Entering into Sponsor User for the first time for user: [{}]", username);
 	
 	
 	            sharedState.put(IDX_POLL_TIMES, config.numberOfTimesToPoll());
@@ -169,7 +169,7 @@ public class IdxSponsorUser implements Node {
 	
 	        }
 	        if (isEnrolled(sharedState, tenantRepoFactory)) {
-	            logger.debug("Enrollment Successful for: [{}]", username);
+	            logger.debug(loggerPrefix + "Enrollment Successful for: [{}]", username);
 	            // If enrollment is successful send user to next node
 	            return goTo(IdxSponsorOutcome.TRUE.name()).build();
 	        }
@@ -244,14 +244,14 @@ public class IdxSponsorUser implements Node {
             throw new NodeProcessException(e);
         }
         if(policyCollection.getItems().length > 0) {
-            logger.debug("Setting Policy On Sponsorship Request");
+            logger.debug(loggerPrefix + "Setting Policy On Sponsorship Request");
             request.setPolicy(policyCollection.getItems()[0]);
 
             policyType = policyCollection.getItems()[0].getType();
         }
         else {
-            logger.error("Could not find an active policy with the PolicyId: " + config.enrollmentPolicyName());
-            throw new NodeProcessException("Could not find an active policy with the PolicyId: " + config.enrollmentPolicyName());
+            logger.error(loggerPrefix + "Could not find an active policy with the PolicyId: " + config.enrollmentPolicyName());
+            throw new NodeProcessException(loggerPrefix + "Could not find an active policy with the PolicyId: " + config.enrollmentPolicyName());
         }
 
 
@@ -270,7 +270,7 @@ public class IdxSponsorUser implements Node {
             request.setApplication(applicationCollection.getItems()[0]);
         }
         else {
-            logger.debug("No Application was found with this name " + appId);
+            logger.debug(loggerPrefix + "No Application was found with this name " + appId);
             throw new NodeProcessException("No Application was found with this name " + appId);
         }
 
@@ -279,15 +279,15 @@ public class IdxSponsorUser implements Node {
             request = sponsorshipRepo.create(request);
         }
         catch (IdxRestException e) {
-            logger.debug("Error creating sponsorship for user: " + userId);
+            logger.debug(loggerPrefix + "Error creating sponsorship for user: " + userId);
             throw new NodeProcessException(e);
         }
 
         //store the sponsorshipHref so we can query the status
         sponsorshipHref = request.getHref();
 
-        logger.debug("Sponsorship created for userId " + userId);
-        logger.debug("Sponsorship Code: " + request.getSponsorshipToken());
+        logger.debug(loggerPrefix + "Sponsorship created for userId " + userId);
+        logger.debug(loggerPrefix + "Sponsorship Code: " + request.getSponsorshipToken());
 
         //AM will build the QR code. Just need to provide the URL string
         String sponsorshipCodeUrl = "identityx://sponsor?SC=" + request.getSponsorshipToken();
@@ -303,10 +303,10 @@ public class IdxSponsorUser implements Node {
 
     private boolean isEnrolled(JsonValue sharedState, TenantRepoFactory tenantRepoFactory) throws NodeProcessException {
 
-        logger.debug("Checking Sponsorship Status for: [{}]", sharedState.get("IdxKeyUserName").asString());
+        logger.debug(loggerPrefix + "Checking Sponsorship Status for: [{}]", sharedState.get("IdxKeyUserName").asString());
 
         String href = sharedState.get(IDX_SPONSORSHIP_HREF).toString().replaceAll("\"", "");
-        logger.debug("Href: " + href);
+        logger.debug(loggerPrefix + "Href: " + href);
 
         SponsorshipRepository sponsorshipRepo = tenantRepoFactory.getSponsorshipRepo();
 
@@ -314,7 +314,7 @@ public class IdxSponsorUser implements Node {
         try {
             request = sponsorshipRepo.get(href);
         } catch (IdxRestException e) {
-            logger.debug("An exception occurred while attempting to determine the status of the sponsorship " +
+            logger.debug(loggerPrefix + "An exception occurred while attempting to determine the status of the sponsorship " +
                     "request.  Exception: " + e.getMessage());
             throw new NodeProcessException(e);
         }
@@ -322,16 +322,16 @@ public class IdxSponsorUser implements Node {
         //COMPLETED EXPIRED or PENDING
         switch (request.getStatus().toString()) {
             case "PENDING":
-                logger.debug("Sponsorship status PENDING");
+                logger.debug(loggerPrefix + "Sponsorship status PENDING");
                 return false;
             case "COMPLETED":
-                logger.debug("Sponsorship status COMPLETED");
+                logger.debug(loggerPrefix + "Sponsorship status COMPLETED");
                 return true;
             case "EXPIRED":
-                logger.debug("Sponsorship status EXPIRED");
+                logger.debug(loggerPrefix + "Sponsorship status EXPIRED");
                 return false;
             default:
-                logger.debug("Sponsorship status not recognized");
+                logger.debug(loggerPrefix + "Sponsorship status not recognized");
                 return false;
         }
 

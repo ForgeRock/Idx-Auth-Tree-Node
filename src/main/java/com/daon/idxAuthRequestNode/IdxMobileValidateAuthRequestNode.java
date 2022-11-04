@@ -59,9 +59,9 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 	
 			try {
 				obj = new JSONObject(context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString());
-				logger.debug("Json={}", obj.toString());
+				logger.debug(loggerPrefix + "Json={}", obj.toString());
 			} catch (JSONException e) {
-				logger.warn("Cannot cast SharedState Key = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_KEY, e.getMessage());
+				logger.warn(loggerPrefix + "Cannot cast SharedState Key = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_KEY, e.getMessage());
 			}
 	
 			if (obj != null) {
@@ -70,7 +70,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 					test = obj.getString(IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME);
 					isJsonOk = true;
 				} catch (JSONException e) {
-					logger.warn("Cannot cast JSON Object Property = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME, e.getMessage());
+					logger.warn(loggerPrefix + "Cannot cast JSON Object Property = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_PROPERTY_NAME, e.getMessage());
 				}
 			}
 	
@@ -78,7 +78,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 	
 			if (TextUtils.isEmpty(test) || !isJsonOk) {
 				test = context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
-				logger.debug("Using-Postman={}", test);
+				logger.debug(loggerPrefix + "Using-Postman={}", test);
 			}
 	
 			if (validateAuthResponse(test, context)) {
@@ -109,7 +109,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			AuthenticationRequest request = tenantRepoFactory.getAuthenticationRequestRepo().get(authHref);
 			
 			if (request == null) {
-				logger.error("AuthRequest Href = {} is invalid", authHref);
+				logger.error(loggerPrefix + "AuthRequest Href = {} is invalid", authHref);
 				return false;
 			}
 			
@@ -117,21 +117,21 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			
 			request = tenantRepoFactory.getAuthenticationRequestRepo().update(request);
 			
-			logger.debug("Checking Status=[{}]", nodeConfig.expectedStatus());
+			logger.debug(loggerPrefix + "Checking Status=[{}]", nodeConfig.expectedStatus());
 			
 			if (request.getStatus() == nodeConfig.expectedStatus()) {
-				logger.debug("Success Status=[{}]", nodeConfig.expectedStatus());
+				logger.debug(loggerPrefix + "Success Status=[{}]", nodeConfig.expectedStatus());
 				context.sharedState.put(IdxCommon.IDX_HREF_KEY, request.getHref());
 				//Required for 'Daon ADoS SRP Passcode Authenticator' [D409#9302|D409#8302]
 				context.sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, request.getFidoAuthenticationResponse());
 				return true;
 			}
 			
-			logger.error("AuthRequest Status = {} is invalid", request.getStatus());
+			logger.error(loggerPrefix + "AuthRequest Status = {} is invalid", request.getStatus());
 			return false;
 			
 		} catch (IdxRestException ex) {
-			logger.error("validateAuthResponse exception", ex);
+			logger.error(loggerPrefix + "validateAuthResponse exception", ex);
 			return false;
 		}
 	}

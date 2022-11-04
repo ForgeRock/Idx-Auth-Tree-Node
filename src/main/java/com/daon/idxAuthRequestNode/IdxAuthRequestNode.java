@@ -106,18 +106,18 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 			try {
 				user = objectMapper.readValue(context.sharedState.get(IdxCommon.IDX_USER_KEY).asString(), User.class);
 			} catch (IOException e) {
-				logger.error("Can't find user in SharedState");
+				logger.error(loggerPrefix + "Can't find user in SharedState");
 				throw new NodeProcessException(e);
 			}
 	
 			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
-			logger.debug("Connected to the IdentityX Server");
+			logger.debug(loggerPrefix + "Connected to the IdentityX Server");
 	
 			String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory);
-			logger.debug("Auth href: " + authHref);
+			logger.debug(loggerPrefix + "Auth href: " + authHref);
 	
 	    	//Place the href value in sharedState
-	    	logger.debug("Setting auth URL in shared state...");
+	    	logger.debug(loggerPrefix + "Setting auth URL in shared state...");
 			JsonValue newState = context.sharedState.copy().put(IdxCommon.IDX_HREF_KEY, authHref);
 	
 	    	return goToNext().replaceSharedState(newState).build();
@@ -135,12 +135,12 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 
 		AuthenticationRequest request = new AuthenticationRequest();
 		if (user == null) {
-			String error = "Error retrieving user";
+			String error = loggerPrefix + "Error retrieving user";
 			logger.error(error);
 			throw new NodeProcessException(error);
 		}
 		else {
-			logger.debug("User found with ID " + user.getUserId());
+			logger.debug(loggerPrefix + "User found with ID " + user.getUserId());
 			request.setUser(user);
 		}
 
@@ -155,12 +155,12 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 			throw new NodeProcessException(e);
 		}
 		if(policyCollection.getItems().length > 0) {
-			logger.debug("Setting Policy On Authentication Request");
+			logger.debug(loggerPrefix + "Setting Policy On Authentication Request");
 			request.setPolicy(policyCollection.getItems()[0]);
 		}
 		else {
-			logger.error("Could not find an active policy with the PolicyId: " + policyName);
-			throw new NodeProcessException("Could not find an active policy with the PolicyId: " + policyName);
+			logger.error(loggerPrefix + "Could not find an active policy with the PolicyId: " + policyName);
+			throw new NodeProcessException(loggerPrefix + "Could not find an active policy with the PolicyId: " + policyName);
 		}
 
 		String appId = config.applicationId();
@@ -178,8 +178,8 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 			request.setApplication(applicationCollection.getItems()[0]);
 		}
 		else {
-			logger.debug("No Application was found with this name " + appId);
-			throw new NodeProcessException("No Application was found with this name " + appId);
+			logger.debug(loggerPrefix + "No Application was found with this name " + appId);
+			throw new NodeProcessException(loggerPrefix + "No Application was found with this name " + appId);
 		}
 
 		request.setDescription("OpenAM has Requested an Authentication.");
@@ -200,10 +200,10 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 		try {
 			request = authenticationRequestRepo.create(request);
 		} catch (IdxRestException e) {
-			logger.debug("Error creating authentication request for user: " + user.getUserId());
+			logger.debug(loggerPrefix + "Error creating authentication request for user: " + user.getUserId());
 			throw new NodeProcessException(e);
 		}
-		logger.debug("Added an authentication request, - authRequestId: {}" + request.getId());
+		logger.debug(loggerPrefix + "Added an authentication request, - authRequestId: {}" + request.getId());
 		return request.getHref();
 	}
 

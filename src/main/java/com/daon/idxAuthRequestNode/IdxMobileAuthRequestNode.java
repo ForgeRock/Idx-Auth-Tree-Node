@@ -92,10 +92,10 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 			JsonValue sharedState = context.sharedState;
 			
 			String authHref = sharedState.get(IdxCommon.IDX_HREF_KEY).asString();
-			logger.debug("AuthenticationRequestHref={}", authHref);
+			logger.debug(loggerPrefix + "AuthenticationRequestHref={}", authHref);
 			
 			if (context.hasCallbacks() && textOutputCallbackOptional.isPresent() && textInputCallbackOptional.isPresent()) {	
-				logger.debug("==> Going to Next State ==>");
+				logger.debug(loggerPrefix + "==> Going to Next State ==>");
 				return goToNext()
 					.replaceSharedState(sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText()))
 					.build();
@@ -104,7 +104,7 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 			String userId = context.sharedState.get(IdxCommon.IDX_USER_ID_KEY).asString();
 			
 			if (TextUtils.isBlank(userId)) {
-				throw new NodeProcessException("UserId cannot be blank");
+				throw new NodeProcessException(loggerPrefix + "UserId cannot be blank");
 			}
 			
 			AuthenticationRequest finalRequest = null;
@@ -126,7 +126,7 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 					field("fidoAuthenticationRequest", finalRequest.getFidoAuthenticationRequest())));
 			
 			if (!(TextUtils.isEmpty(adosAuthResponse))) {
-				logger.debug("ADoS Tree Operation Adding fidoAuthenticationResponse to callback json");
+				logger.debug(loggerPrefix + "ADoS Tree Operation Adding fidoAuthenticationResponse to callback json");
 				json.put("fidoAuthenticationResponse", adosAuthResponse);			
 				json.put("fidoResponseCode", finalRequest.getFidoResponseCode());
 				json.put("fidoResponseMsg", finalRequest.getFidoResponseMsg());
@@ -150,7 +150,7 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 	
 	private AuthenticationRequest createAuthRequest(TreeContext context, String userId) throws Exception {
 		
-		logger.info("Entering createAuthRequest");
+		logger.info(loggerPrefix + "Entering createAuthRequest");
 		
 		User user = new User();
 		user.setUserId(userId);
@@ -171,39 +171,39 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 		request.setType(IdxCommon.IDX_AUTH_REQUEST_TYPE);
 		request.setServerData(context.sharedState.get(SharedStateConstants.USERNAME).asString());
 		
-		logger.debug("UserId={} ApplicationId={} Policy={}", request.getUser().getUserId(), request.getApplication().getApplicationId(), request.getPolicy().getPolicyId());
+		logger.debug(loggerPrefix + "UserId={} ApplicationId={} Policy={}", request.getUser().getUserId(), request.getApplication().getApplicationId(), request.getPolicy().getPolicyId());
 		
 		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context);
 		
 		try {
 			request = tenantRepoFactory.getAuthenticationRequestRepo().create(request);
 		} catch (IdxRestException ex) {
-			logger.error("createAuthRequest exception", ex);
+			logger.error(loggerPrefix + "createAuthRequest exception", ex);
 			throw new NodeProcessException(ex);
 		}
 		
-		logger.info("Exiting createAuthRequest");
+		logger.info(loggerPrefix + "Exiting createAuthRequest");
 		return request;
 	}
 	
 	private AuthenticationRequest getAuthRequest(TreeContext context, String authRequestHref) throws Exception {
 		
-		logger.info("Entering getAuthRequest");
+		logger.info(loggerPrefix + "Entering getAuthRequest");
 		
 		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context);
 		
-		logger.debug("AuthRequestHref={}", authRequestHref);
+		logger.debug(loggerPrefix + "AuthRequestHref={}", authRequestHref);
 		
 		AuthenticationRequest request = null;
 		
 		try {
 			request = tenantRepoFactory.getAuthenticationRequestRepo().get(authRequestHref);
 		} catch (IdxRestException ex) {
-			logger.error("getAuthRequest exception", ex);
+			logger.error(loggerPrefix + "getAuthRequest exception", ex);
 			throw new NodeProcessException(ex);
 		}
 		
-		logger.info("Exiting getAuthRequest");
+		logger.info(loggerPrefix + "Exiting getAuthRequest");
 		return request;
 	}
 	

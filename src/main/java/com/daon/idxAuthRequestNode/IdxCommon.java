@@ -49,25 +49,17 @@ class IdxCommon {
 
 	static final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
 
-	static User findUser(String userId, TenantRepoFactory tenantRepoFactory, TreeContext context) throws Exception {
+	static User findUser(String userId, TenantRepoFactory tenantRepoFactory, TreeContext context, String theClientID, String theClientSecret, String idxBaseURL) throws Exception {
 
-		// Pull these config values from SharedState. These are in the
-		// IdxCheckEnrollmentStatus node
-		String theClientID = context.sharedState.get("IdxClientID").asString();
 		if (theClientID == null) {
 			logger.error("Error: ClientID not in shared state!");
 			throw new NodeProcessException("ClientID not in shared state!");
 		}
-
-		String theClientSecret = context.sharedState.get("IdxClientSecret").asString();
 		
 		if (theClientSecret == null) {
 			logger.error("Error: ClientSecret not in shared state!");
 			throw new NodeProcessException("ClientSecret not in shared state!");
 		}
-		
-
-		String idxBaseURL = context.sharedState.get("IdxBaseURL").asString();
 		
 		if (idxBaseURL == null) {
 			logger.error("Error: idxBaseURL not in shared state!");
@@ -75,7 +67,7 @@ class IdxCommon {
 		}
 		
 
-		String identityCloudURL = context.request.serverUrl + "/am/oauth2/alpha/access_token";
+		String identityCloudURL = context.request.serverUrl + "/oauth2/alpha/access_token";
 		logger.error("Justin here is the identityCloudURL: " + identityCloudURL);
 		
 		

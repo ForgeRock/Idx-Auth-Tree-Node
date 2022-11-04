@@ -125,7 +125,7 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 			String theClientSecret = config.clientSecret();
 			String theBaseURL = config.baseURL();
 
-			logger.debug("IdxCheckEnrollmentStatus::Configuration - gathered ClientID ClientSecret and BaseURL");
+			logger.debug(loggerPrefix + "IdxCheckEnrollmentStatus::Configuration - gathered ClientID ClientSecret and BaseURL");
 
 			TenantRepoFactory tenantRepoFactory = IdxTenantRepoFactorySingleton.getInstance(theBaseURL).tenantRepoFactory;
 
@@ -137,21 +137,21 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 			newState.put("IdxBaseURL", theBaseURL);
 			newState.put("IdxKeyUserName", username);
 
-			User user = findUser(username, tenantRepoFactory, context);
+			User user = findUser(username, tenantRepoFactory, context, theClientID, theClientSecret, theBaseURL);
 
 			if (user == null) {
-				logger.error("FATAL: UserID=[{}] not found in IdentityX", username);
+				logger.error(loggerPrefix + "FATAL: UserID=[{}] not found in IdentityX", username);
 				return goTo(false).replaceSharedState(newState).build();
 			}
 
-			logger.debug("Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(user.getHref()));
-			logger.debug("User found with ID {}", username);
+			logger.debug(loggerPrefix + "Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(user.getHref()));
+			logger.debug(loggerPrefix + "User found with ID {}", username);
 
 			newState.put(IdxCommon.IDX_USER_HREF_KEY, user.getHref());
 			newState.put(IdxCommon.IDX_USER_INTERNAL_ID_KEY, user.getId());
 			newState.put(IdxCommon.IDX_USER_ID_KEY, user.getUserId());
 
-			logger.debug("Added to SharedState - User Id=[{}] UserId=[{}] Href=[{}]", user.getId(), user.getUserId(), user.getHref());
+			logger.debug(loggerPrefix + "Added to SharedState - User Id=[{}] UserId=[{}] Href=[{}]", user.getId(), user.getUserId(), user.getHref());
 
 			return goTo(true).replaceSharedState(newState).build();
 		} catch (Exception ex) {
