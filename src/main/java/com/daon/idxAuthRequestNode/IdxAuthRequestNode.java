@@ -20,6 +20,25 @@ package com.daon.idxAuthRequestNode;
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 import static com.daon.idxAuthRequestNode.IdxCommon.objectMapper;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+import javax.inject.Inject;
+
+import org.forgerock.json.JsonValue;
+import org.forgerock.openam.annotations.sm.Attribute;
+import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
+import org.forgerock.openam.auth.node.api.Action;
+import org.forgerock.openam.auth.node.api.Node;
+import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.TreeContext;
+import org.forgerock.util.i18n.PreferredLocales;
+
 import com.daon.identityx.rest.model.def.PolicyStatusEnum;
 import com.daon.identityx.rest.model.def.TransactionPushNotificationTypeEnum;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
@@ -35,20 +54,20 @@ import com.identityx.clientSDK.repositories.ApplicationRepository;
 import com.identityx.clientSDK.repositories.AuthenticationRequestRepository;
 import com.identityx.clientSDK.repositories.PolicyRepository;
 import com.sun.identity.sm.RequiredValueValidator;
-import java.io.IOException;
-import java.util.UUID;
-import javax.inject.Inject;
-import org.forgerock.json.JsonValue;
-import org.forgerock.openam.annotations.sm.Attribute;
-import org.forgerock.openam.auth.node.api.*;
 
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
-public class IdxAuthRequestNode extends SingleOutcomeNode {
+@Node.Metadata(outcomeProvider = IdxAuthRequestNode.OutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
+public class IdxAuthRequestNode extends AbstractDecisionNode {
 
     private String loggerPrefix = "[IdentityX Auth Request Initiator Node][Partner] ";
+    
+    /**
+     * Outcomes Ids for this node.
+     */
+    static final String NEXT_OUTCOME = "Next";
+    static final String ERROR_OUTCOME = "Error";
 	
 	/**
 	 * Configuration for the node.
@@ -120,13 +139,13 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 	    	logger.debug(loggerPrefix + "Setting auth URL in shared state...");
 			JsonValue newState = context.sharedState.copy().put(IdxCommon.IDX_HREF_KEY, authHref);
 	
-	    	return goToNext().replaceSharedState(newState).build();
+			return Action.goTo(NEXT_OUTCOME).replaceSharedState(newState).build();
 	    }
     	catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(ERROR_OUTCOME).build();
     	}
     }
 
@@ -206,6 +225,12 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 		logger.debug(loggerPrefix + "Added an authentication request, - authRequestId: {}" + request.getId());
 		return request.getHref();
 	}
-
-
+    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+        @Override
+        public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+            List<Outcome> results = new ArrayList<>(Arrays.asList(new Outcome(NEXT_OUTCOME, NEXT_OUTCOME)));
+            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
+            return Collections.unmodifiableList(results);
+        }
+    }
 }

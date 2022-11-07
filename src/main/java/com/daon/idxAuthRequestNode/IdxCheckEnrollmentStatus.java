@@ -18,6 +18,14 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.findUser;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+
+import javax.inject.Inject;
+
 import org.forgerock.json.JsonValue;
 import org.forgerock.openam.annotations.sm.Attribute;
 import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
@@ -28,12 +36,12 @@ import org.forgerock.openam.auth.node.api.SharedStateConstants;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.sm.annotations.adapters.Password;
 import org.forgerock.openam.utils.StringUtils;
+import org.forgerock.util.i18n.PreferredLocales;
+
 import com.daon.identityx.rest.model.pojo.User;
 import com.google.inject.assistedinject.Assisted;
 import com.identityx.clientSDK.TenantRepoFactory;
 import com.sun.identity.sm.RequiredValueValidator;
-
-import javax.inject.Inject;
 
 /**
  * A node that checks to see if a provided username is enrolled in IdentityX
@@ -46,7 +54,7 @@ import javax.inject.Inject;
  * the IdentityX userId.
  *
  */
-@Node.Metadata(outcomeProvider = AbstractDecisionNode.OutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
+@Node.Metadata(outcomeProvider = IdxCheckEnrollmentStatus.OutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
     private String loggerPrefix = "[IdentityX Check Enrollment Status Node][Partner] ";
@@ -93,6 +101,13 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
 	private final Config config;
 	private static LoggerWrapper logger = new LoggerWrapper();
+    /**
+     * Outcomes Ids for this node.
+     */
+    static final String SUCCESS_OUTCOME = "True";
+    static final String FALSE_OUTCOME = "False";
+    static final String ERROR_OUTCOME = "Error";
+
 
 	@Inject
 	public IdxCheckEnrollmentStatus(@Assisted Config config) {
@@ -112,6 +127,7 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 				userIdAttribute = config.userIdAttribute();
 			}
 
+			//TODO need to get it off the objectAttributes as well as top level
 			JsonValue usernameJson = context.sharedState.get(userIdAttribute);
 
 			if (usernameJson.isNull() || StringUtils.isBlank(usernameJson.asString())) {
@@ -141,7 +157,7 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
 			if (user == null) {
 				logger.error(loggerPrefix + "FATAL: UserID=[{}] not found in IdentityX", username);
-				return goTo(false).replaceSharedState(newState).build();
+				return Action.goTo(FALSE_OUTCOME).replaceSharedState(newState).build();
 			}
 
 			logger.debug(loggerPrefix + "Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(user.getHref()));
@@ -153,13 +169,28 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
 			logger.debug(loggerPrefix + "Added to SharedState - User Id=[{}] UserId=[{}] Href=[{}]", user.getId(), user.getUserId(), user.getHref());
 
-			return goTo(true).replaceSharedState(newState).build();
+			return Action.goTo(SUCCESS_OUTCOME).replaceSharedState(newState).build();
 		} catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(ERROR_OUTCOME).build();
 
 		}
 	}
+	
+    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+        @Override
+        public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+            List<Outcome> results = new ArrayList<>(
+                    Arrays.asList(
+                            new Outcome(SUCCESS_OUTCOME, SUCCESS_OUTCOME)
+                    )
+            );
+            results.add(new Outcome(FALSE_OUTCOME, FALSE_OUTCOME));
+            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
+
+            return Collections.unmodifiableList(results);
+        }
+    }
 }

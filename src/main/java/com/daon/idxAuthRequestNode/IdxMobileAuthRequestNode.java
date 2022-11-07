@@ -4,15 +4,29 @@ import static org.forgerock.json.JsonValue.field;
 import static org.forgerock.json.JsonValue.json;
 import static org.forgerock.json.JsonValue.object;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.TextInputCallback;
+import javax.security.auth.callback.TextOutputCallback;
+
 import org.apache.http.util.TextUtils;
 import org.forgerock.json.JsonValue;
 import org.forgerock.openam.annotations.sm.Attribute;
+import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
 import org.forgerock.openam.auth.node.api.SharedStateConstants;
 import org.forgerock.openam.auth.node.api.SingleOutcomeNode;
 import org.forgerock.openam.auth.node.api.TreeContext;
+import org.forgerock.util.i18n.PreferredLocales;
 
 import com.daon.identityx.rest.model.pojo.Application;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
@@ -23,21 +37,15 @@ import com.identityx.clientSDK.TenantRepoFactory;
 import com.identityx.clientSDK.exceptions.IdxRestException;
 import com.sun.identity.sm.RequiredValueValidator;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import javax.inject.Inject;
-import javax.security.auth.callback.Callback;
-import javax.security.auth.callback.TextInputCallback;
-import javax.security.auth.callback.TextOutputCallback;
-
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
-public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
+@Node.Metadata(outcomeProvider = IdxMobileAuthRequestNode.OutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
+public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 
 	private String loggerPrefix = "[IdentityX Mobile Auth Request Node][Partner] ";
+    static final String NEXT_OUTCOME = "Next";
+    static final String ERROR_OUTCOME = "Error";
 	
 	/**
 	 * Configuration for the node.
@@ -96,7 +104,7 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 			
 			if (context.hasCallbacks() && textOutputCallbackOptional.isPresent() && textInputCallbackOptional.isPresent()) {	
 				logger.debug(loggerPrefix + "==> Going to Next State ==>");
-				return goToNext()
+				return Action.goTo(NEXT_OUTCOME)
 					.replaceSharedState(sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText()))
 					.build();
 			}
@@ -142,8 +150,8 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 		catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(ERROR_OUTCOME).build();
 
 		}
 	}
@@ -206,6 +214,12 @@ public class IdxMobileAuthRequestNode extends SingleOutcomeNode {
 		logger.info(loggerPrefix + "Exiting getAuthRequest");
 		return request;
 	}
-	
-
+    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+        @Override
+        public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+            List<Outcome> results = new ArrayList<>(Arrays.asList(new Outcome(NEXT_OUTCOME, NEXT_OUTCOME)));
+            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
+            return Collections.unmodifiableList(results);
+        }
+    }
 }

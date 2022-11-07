@@ -2,19 +2,25 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+
 import javax.inject.Inject;
 
 import org.apache.http.util.TextUtils;
-
+import org.forgerock.json.JsonValue;
 import org.forgerock.openam.annotations.sm.Attribute;
 import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
-import org.forgerock.openam.auth.node.api.NodeProcessException;
-
 import org.forgerock.openam.auth.node.api.TreeContext;
+import org.forgerock.util.i18n.PreferredLocales;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import com.daon.identityx.rest.model.def.AuthenticationRequestStatusEnum;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
 import com.google.inject.assistedinject.Assisted;
@@ -25,12 +31,18 @@ import com.sun.identity.sm.RequiredValueValidator;
 /**
  * A node that validates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = AbstractDecisionNode.OutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = IdxMobileValidateAuthRequestNode.OutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
 	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate Node][Partner] ";
 
+    /**
+     * Outcomes Ids for this node.
+     */
+    static final String SUCCESS_OUTCOME = "True";
+    static final String FALSE_OUTCOME = "False";
+    static final String ERROR_OUTCOME = "Error";
 	
 	public interface Config {
 		
@@ -82,17 +94,17 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			}
 	
 			if (validateAuthResponse(test, context)) {
-				return goTo(true)
+				return Action.goTo(SUCCESS_OUTCOME)
 						.replaceSharedState(context.sharedState)				
 						.build();
 			}
-			return goTo(false).build();
+			return Action.goTo(FALSE_OUTCOME).build();
 		}
 		catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(ERROR_OUTCOME).build();
 
 		}
 	}
@@ -135,4 +147,19 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			return false;
 		}
 	}
+	
+    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+        @Override
+        public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+            List<Outcome> results = new ArrayList<>(
+                    Arrays.asList(
+                            new Outcome(SUCCESS_OUTCOME, SUCCESS_OUTCOME)
+                    )
+            );
+            results.add(new Outcome(FALSE_OUTCOME, FALSE_OUTCOME));
+            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
+
+            return Collections.unmodifiableList(results);
+        }
+    }
 }

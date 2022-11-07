@@ -25,6 +25,7 @@ import com.identityx.clientSDK.TenantRepoFactory;
 import com.identityx.clientSDK.exceptions.IdxRestException;
 import com.identityx.clientSDK.repositories.AuthenticationRequestRepository;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import javax.inject.Inject;
 import org.forgerock.json.JsonValue;
@@ -42,6 +43,7 @@ public class IdxAuthStatusNode implements Node {
     private static final String SUCCESS = "Success";
     private static final String FAILED = "Failed";
     private static final String EXPIRED = "Expired";
+    private static final String ERROR = "Error";
     private String loggerPrefix = "[IdentityX Auth Request Decision Node][Partner] ";
 
 
@@ -104,8 +106,8 @@ public class IdxAuthStatusNode implements Node {
     	catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(ERROR).build();
 
 		}
     }
@@ -142,6 +144,7 @@ public class IdxAuthStatusNode implements Node {
             list.add(new Outcome(FAILED, "Failed"));
             list.add(new Outcome(PENDING, "Pending"));
             list.add(new Outcome(EXPIRED, "Expired"));
+            list.add(new Outcome(ERROR, "Error"));
 
             return list;
         }

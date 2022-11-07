@@ -33,6 +33,7 @@ import com.sun.identity.authentication.callbacks.ScriptTextOutputCallback;
 import com.sun.identity.sm.RequiredValueValidator;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
@@ -180,8 +181,8 @@ public class IdxSponsorUser implements Node {
 		catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put("Exception", ex.toString());
-            return Action.goTo("error").build();
+            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(IdxSponsorOutcome.ERROR.name()).build();
 
 		}
 
@@ -356,7 +357,11 @@ public class IdxSponsorUser implements Node {
         /**
          * The end user pressed the email button
          */
-        EMAIL
+        EMAIL,
+        /**
+         * Error occured.  Need to check sharedstate for issue
+         */
+        ERROR
     }
 
     /**
@@ -371,7 +376,8 @@ public class IdxSponsorUser implements Node {
                     new Outcome(IdxSponsorOutcome.TRUE.name(), bundle.getString("trueOutcome")),
                     new Outcome(IdxSponsorOutcome.FALSE.name(), bundle.getString("falseOutcome")),
                     new Outcome(IdxSponsorOutcome.CANCEL.name(), bundle.getString("cancelOutcome")),
-                    new Outcome(IdxSponsorOutcome.EMAIL.name(), bundle.getString("emailOutcome")));
+                    new Outcome(IdxSponsorOutcome.EMAIL.name(), bundle.getString("emailOutcome")),
+                    new Outcome(IdxSponsorOutcome.ERROR.name(), bundle.getString("errorOutcome")));
         }
     }
 
