@@ -113,10 +113,11 @@ class IdxCommon {
 		}
 	}
 
-	static TenantRepoFactory getTenantRepoFactory(TreeContext context) throws Exception {
+	static TenantRepoFactory getTenantRepoFactory(TreeContext context, Node theNode) throws Exception {
 		TenantRepoFactory tenantRepoFactory;
 
-		String theBaseURL = context.sharedState.get("IdxBaseURL").asString();
+		String theBaseURL = context.getStateFor(theNode).get("IdxBaseURL").asString();
+		
 		if (theBaseURL == null) {
 			logger.error("Error: The Base URL was not in the shared state!");
 			throw new NodeProcessException("The Base URL was not in the shared state!");

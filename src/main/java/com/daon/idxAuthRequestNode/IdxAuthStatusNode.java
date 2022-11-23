@@ -77,7 +77,7 @@ public class IdxAuthStatusNode implements Node {
 				throw new NodeProcessException(errorMessage);
 			}
 
-			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);
 
 			// call API to check status. Return true, false or pending
 			// get the authHref value from sharedState

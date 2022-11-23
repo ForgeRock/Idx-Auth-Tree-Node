@@ -148,13 +148,13 @@ public class IdxSponsorUser implements Node {
 				}
 			}
 
-			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);
 
 			String username = sharedState.get("IdxKeyUserName").asString();
 			if (username == null) {
 				String errorMessage = loggerPrefix + "Error: IdxKeyUserName not found in sharedState! Make sure "
 						+ "IdxCheckEnrollmentStatus node is in the tree!";
-				logger.error(errorMessage);
+				logger.error(loggerPrefix + errorMessage);
 				throw new NodeProcessException(errorMessage);
 			}
 
