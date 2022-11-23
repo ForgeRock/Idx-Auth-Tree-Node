@@ -18,20 +18,18 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.findUser;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import javax.inject.Inject;
 
 import org.forgerock.json.JsonValue;
 import org.forgerock.openam.annotations.sm.Attribute;
-import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.NodeState;
 import org.forgerock.openam.auth.node.api.SharedStateConstants;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.sm.annotations.adapters.Password;
@@ -39,6 +37,7 @@ import org.forgerock.openam.utils.StringUtils;
 import org.forgerock.util.i18n.PreferredLocales;
 
 import com.daon.identityx.rest.model.pojo.User;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.identityx.clientSDK.TenantRepoFactory;
 import com.sun.identity.sm.RequiredValueValidator;
@@ -54,10 +53,10 @@ import com.sun.identity.sm.RequiredValueValidator;
  * the IdentityX userId.
  *
  */
-@Node.Metadata(outcomeProvider = IdxCheckEnrollmentStatus.OutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
-public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
+@Node.Metadata(outcomeProvider = IdxCheckEnrollmentStatus.IdxCheckEnrollmentStatusOutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
+public class IdxCheckEnrollmentStatus implements Node {
 
-    private String loggerPrefix = "[IdentityX Check Enrollment Status Node][Partner] ";
+    private String loggerPrefix = "[IdentityX Check Enrollment Status Node][Marketplace] ";
 	
 	/**
 	 * Configuration for the node.
@@ -101,12 +100,7 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
 	private final Config config;
 	private static LoggerWrapper logger = new LoggerWrapper();
-    /**
-     * Outcomes Ids for this node.
-     */
-    static final String SUCCESS_OUTCOME = "True";
-    static final String FALSE_OUTCOME = "False";
-    static final String ERROR_OUTCOME = "Error";
+	private static final String BUNDLE = IdxCheckEnrollmentStatus.class.getName();
 
 
 	@Inject
@@ -116,8 +110,9 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 
 	@Override
 	public Action process(TreeContext context) {
-
 		try {
+			logger.debug(loggerPrefix + "Entering IdxCheckEnrollmentStatus process method");
+
 			String userIdAttribute;
 			// Check for the userIdAttribute in sharedState
 			// If it is defined, we should use it instead of the AM USERNAME
@@ -127,10 +122,9 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 				userIdAttribute = config.userIdAttribute();
 			}
 
-			//TODO need to get it off the objectAttributes as well as top level
-			JsonValue usernameJson = context.sharedState.get(userIdAttribute);
+			JsonValue usernameJson = context.getStateFor(this).get(userIdAttribute);
 
-			if (usernameJson.isNull() || StringUtils.isBlank(usernameJson.asString())) {
+			if (usernameJson==null || usernameJson.isNull() || StringUtils.isBlank(usernameJson.asString())) {
 				logger.error(loggerPrefix + "Here is the userIdAttribute used to looking in sharedState: " + userIdAttribute);
 				throw new NodeProcessException("Username attribute " + userIdAttribute + " is either null or empty");
 			}
@@ -146,51 +140,70 @@ public class IdxCheckEnrollmentStatus extends AbstractDecisionNode {
 			TenantRepoFactory tenantRepoFactory = IdxTenantRepoFactorySingleton.getInstance(theBaseURL).tenantRepoFactory;
 
 			// Set all config params in SharedState
-			JsonValue newState = context.sharedState.copy();
+			NodeState newState = context.getStateFor(this);
 
-			newState.put("IdxClientID", theClientID);
-			newState.put("IdxClientSecret", theClientSecret);
-			newState.put("IdxBaseURL", theBaseURL);
-			newState.put("IdxKeyUserName", username);
+			newState.putShared("IdxClientID", theClientID);
+			newState.putShared("IdxClientSecret", theClientSecret);
+			newState.putShared("IdxBaseURL", theBaseURL);
+			newState.putShared("IdxKeyUserName", username);
 
 			User user = findUser(username, tenantRepoFactory, context, theClientID, theClientSecret, theBaseURL);
-
+			
 			if (user == null) {
 				logger.error(loggerPrefix + "FATAL: UserID=[{}] not found in IdentityX", username);
-				return Action.goTo(FALSE_OUTCOME).replaceSharedState(newState).build();
+				return Action.goTo(IdxCheckEnrollmentStatusOutcome.FALSE_OUTCOME.name()).build();
 			}
 
 			logger.debug(loggerPrefix + "Connected to the IdentityX Server @ [{}]", IdxCommon.getServerName(user.getHref()));
 			logger.debug(loggerPrefix + "User found with ID {}", username);
 
-			newState.put(IdxCommon.IDX_USER_HREF_KEY, user.getHref());
-			newState.put(IdxCommon.IDX_USER_INTERNAL_ID_KEY, user.getId());
-			newState.put(IdxCommon.IDX_USER_ID_KEY, user.getUserId());
+			newState.putShared(IdxCommon.IDX_USER_HREF_KEY, user.getHref());
+			newState.putShared(IdxCommon.IDX_USER_INTERNAL_ID_KEY, user.getId());
+			newState.putShared(IdxCommon.IDX_USER_ID_KEY, user.getUserId());
+			newState.putShared(IdxCommon.IDX_USER_KEY, IdxCommon.objectMapper.writeValueAsString(user));
 
 			logger.debug(loggerPrefix + "Added to SharedState - User Id=[{}] UserId=[{}] Href=[{}]", user.getId(), user.getUserId(), user.getHref());
-
-			return Action.goTo(SUCCESS_OUTCOME).replaceSharedState(newState).build();
+			logger.debug(loggerPrefix + "Exiting IdxCheckEnrollmentStatus process method");
+			return Action.goTo(IdxCheckEnrollmentStatusOutcome.TRUE_OUTCOME.name()).build();
 		} catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
-            return Action.goTo(ERROR_OUTCOME).build();
+            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(IdxCheckEnrollmentStatusOutcome.ERROR_OUTCOME.name()).build();
 
 		}
 	}
 	
-    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+	
+	
+	/**
+	 * The possible outcomes for the IdxSponsor node.
+	 */
+	public enum IdxCheckEnrollmentStatusOutcome {
+		/**
+		 * Successful Found User.
+		 */
+		TRUE_OUTCOME,
+		/**
+		 * Did not find User.
+		 */
+		FALSE_OUTCOME,
+		/**
+		 * Error occured. Need to check sharedstate for issue
+		 */
+		ERROR_OUTCOME
+	}
+	
+	
+    public static class IdxCheckEnrollmentStatusOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
         @Override
         public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
-            List<Outcome> results = new ArrayList<>(
-                    Arrays.asList(
-                            new Outcome(SUCCESS_OUTCOME, SUCCESS_OUTCOME)
-                    )
-            );
-            results.add(new Outcome(FALSE_OUTCOME, FALSE_OUTCOME));
-            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
-
-            return Collections.unmodifiableList(results);
+			ResourceBundle bundle = locales.getBundleInPreferredLocale(BUNDLE,
+					IdxCheckEnrollmentStatusOutcomeProvider.class.getClassLoader());
+			return ImmutableList.of(
+					new Outcome(IdxCheckEnrollmentStatusOutcome.TRUE_OUTCOME.name(), bundle.getString("trueOutcome")),
+					new Outcome(IdxCheckEnrollmentStatusOutcome.FALSE_OUTCOME.name(), bundle.getString("falseOutcome")),
+					new Outcome(IdxCheckEnrollmentStatusOutcome.ERROR_OUTCOME.name(), bundle.getString("errorOutcome")));
         }
     }
 }

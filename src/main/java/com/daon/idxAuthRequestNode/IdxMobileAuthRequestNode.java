@@ -5,11 +5,10 @@ import static org.forgerock.json.JsonValue.json;
 import static org.forgerock.json.JsonValue.object;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import javax.inject.Inject;
 import javax.security.auth.callback.Callback;
@@ -23,8 +22,8 @@ import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.NodeState;
 import org.forgerock.openam.auth.node.api.SharedStateConstants;
-import org.forgerock.openam.auth.node.api.SingleOutcomeNode;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.util.i18n.PreferredLocales;
 
@@ -32,6 +31,7 @@ import com.daon.identityx.rest.model.pojo.Application;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
 import com.daon.identityx.rest.model.pojo.Policy;
 import com.daon.identityx.rest.model.pojo.User;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.identityx.clientSDK.TenantRepoFactory;
 import com.identityx.clientSDK.exceptions.IdxRestException;
@@ -40,12 +40,11 @@ import com.sun.identity.sm.RequiredValueValidator;
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = IdxMobileAuthRequestNode.OutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = IdxMobileAuthRequestNode.IdxMobileAuthRequestNodeOutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 
-	private String loggerPrefix = "[IdentityX Mobile Auth Request Node][Partner] ";
-    static final String NEXT_OUTCOME = "Next";
-    static final String ERROR_OUTCOME = "Error";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Node][Marketplace] ";
+	private static final String BUNDLE = IdxMobileAuthRequestNode.class.getName();
 	
 	/**
 	 * Configuration for the node.
@@ -97,19 +96,18 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 			Optional<TextOutputCallback> textOutputCallbackOptional = context.getCallback(TextOutputCallback.class);
 			Optional<TextInputCallback> textInputCallbackOptional = context.getCallback(TextInputCallback.class);
 			
-			JsonValue sharedState = context.sharedState;
+			NodeState sharedState = context.getStateFor(this);
 			
 			String authHref = sharedState.get(IdxCommon.IDX_HREF_KEY).asString();
 			logger.debug(loggerPrefix + "AuthenticationRequestHref={}", authHref);
 			
 			if (context.hasCallbacks() && textOutputCallbackOptional.isPresent() && textInputCallbackOptional.isPresent()) {	
 				logger.debug(loggerPrefix + "==> Going to Next State ==>");
-				return Action.goTo(NEXT_OUTCOME)
-					.replaceSharedState(sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText()))
-					.build();
+				sharedState.putShared(IdxCommon.IDX_AUTH_RESPONSE_KEY, textInputCallbackOptional.get().getText());
+				return Action.goTo(IdxMobileAuthRequestNodeOutcome.NEXT_OUTCOME.name()).build();
 			}
 			
-			String userId = context.sharedState.get(IdxCommon.IDX_USER_ID_KEY).asString();
+			String userId = context.getStateFor(this).get(IdxCommon.IDX_USER_ID_KEY).asString();
 			
 			if (TextUtils.isBlank(userId)) {
 				throw new NodeProcessException(loggerPrefix + "UserId cannot be blank");
@@ -143,15 +141,15 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 			callbacks.add(new TextInputCallback("Please provide the Daon Fido Response", "{}"));
 			callbacks.add(new TextOutputCallback(TextOutputCallback.INFORMATION, json.toString()));
 	
-			return Action.send(callbacks)
-					.replaceSharedState(context.sharedState.put(IdxCommon.IDX_HREF_KEY, finalRequest.getHref()))
-					.build();
+			sharedState.putShared(IdxCommon.IDX_HREF_KEY, finalRequest.getHref());
+			
+			return Action.send(callbacks).build();
 		}
 		catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
-            return Action.goTo(ERROR_OUTCOME).build();
+            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(IdxMobileAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}
 	}
@@ -159,6 +157,7 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 	private AuthenticationRequest createAuthRequest(TreeContext context, String userId) throws Exception {
 		
 		logger.info(loggerPrefix + "Entering createAuthRequest");
+		
 		
 		User user = new User();
 		user.setUserId(userId);
@@ -177,14 +176,14 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 		request.setPolicy(policy);
 		request.setDescription(config.transactionDescription());
 		request.setType(IdxCommon.IDX_AUTH_REQUEST_TYPE);
-		request.setServerData(context.sharedState.get(SharedStateConstants.USERNAME).asString());
+		request.setServerData(context.getStateFor(this).get(SharedStateConstants.USERNAME).asString());
 		
 		logger.debug(loggerPrefix + "UserId={} ApplicationId={} Policy={}", request.getUser().getUserId(), request.getApplication().getApplicationId(), request.getPolicy().getPolicyId());
 		
 		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context);
 		
 		try {
-			request = tenantRepoFactory.getAuthenticationRequestRepo().create(request);
+			request = tenantRepoFactory.getAuthenticationRequestRepo().create(request, IdxCommon.getAccessToken(context, this));
 		} catch (IdxRestException ex) {
 			logger.error(loggerPrefix + "createAuthRequest exception", ex);
 			throw new NodeProcessException(ex);
@@ -205,7 +204,7 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 		AuthenticationRequest request = null;
 		
 		try {
-			request = tenantRepoFactory.getAuthenticationRequestRepo().get(authRequestHref);
+			request = tenantRepoFactory.getAuthenticationRequestRepo().get(authRequestHref, IdxCommon.getAccessToken(context, this));
 		} catch (IdxRestException ex) {
 			logger.error(loggerPrefix + "getAuthRequest exception", ex);
 			throw new NodeProcessException(ex);
@@ -214,12 +213,33 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 		logger.info(loggerPrefix + "Exiting getAuthRequest");
 		return request;
 	}
-    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
-        @Override
-        public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
-            List<Outcome> results = new ArrayList<>(Arrays.asList(new Outcome(NEXT_OUTCOME, NEXT_OUTCOME)));
-            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
-            return Collections.unmodifiableList(results);
-        }
-    }
+
+	/**
+	 * The possible outcomes for the IdxSponsor node.
+	 */
+	public enum IdxMobileAuthRequestNodeOutcome {
+		/**
+		 * Successful Found User.
+		 */
+		NEXT_OUTCOME,
+		/**
+		 * Error occured. Need to check sharedstate for issue
+		 */
+		ERROR_OUTCOME
+	}
+
+	public static class IdxMobileAuthRequestNodeOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+		@Override
+		public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+			ResourceBundle bundle = locales.getBundleInPreferredLocale(BUNDLE,
+					IdxMobileAuthRequestNodeOutcomeProvider.class.getClassLoader());
+			return ImmutableList.of(
+					new Outcome(IdxMobileAuthRequestNodeOutcome.NEXT_OUTCOME.name(), bundle.getString("nextOutcome")),
+					new Outcome(IdxMobileAuthRequestNodeOutcome.ERROR_OUTCOME.name(), bundle.getString("errorOutcome")));
+		}
+	}    
+    
+    
+    
+    
 }

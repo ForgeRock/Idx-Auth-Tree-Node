@@ -2,11 +2,9 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import javax.inject.Inject;
 
@@ -23,6 +21,7 @@ import org.json.JSONObject;
 
 import com.daon.identityx.rest.model.def.AuthenticationRequestStatusEnum;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.identityx.clientSDK.TenantRepoFactory;
 import com.identityx.clientSDK.exceptions.IdxRestException;
@@ -31,18 +30,12 @@ import com.sun.identity.sm.RequiredValueValidator;
 /**
  * A node that validates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = IdxMobileValidateAuthRequestNode.OutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
+@Node.Metadata(outcomeProvider = IdxMobileValidateAuthRequestNode.IdxMobileValidateAuthRequestNodeOutcomeProvider.class, configClass = IdxMobileValidateAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
-	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate Node][Partner] ";
-
-    /**
-     * Outcomes Ids for this node.
-     */
-    static final String SUCCESS_OUTCOME = "True";
-    static final String FALSE_OUTCOME = "False";
-    static final String ERROR_OUTCOME = "Error";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate Node][Marketplace] ";
+	private static final String BUNDLE = IdxMobileValidateAuthRequestNode.class.getName();
 	
 	public interface Config {
 		
@@ -70,7 +63,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			boolean isJsonOk = false;
 	
 			try {
-				obj = new JSONObject(context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString());
+				obj = new JSONObject(context.getStateFor(this).get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString());
 				logger.debug(loggerPrefix + "Json={}", obj.toString());
 			} catch (JSONException e) {
 				logger.warn(loggerPrefix + "Cannot cast SharedState Key = [{}] to JSON Object = {}", IdxCommon.IDX_AUTH_RESPONSE_KEY, e.getMessage());
@@ -89,22 +82,20 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			logger.debug("Test={}", test);
 	
 			if (TextUtils.isEmpty(test) || !isJsonOk) {
-				test = context.sharedState.get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
+				test = context.getStateFor(this).get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
 				logger.debug(loggerPrefix + "Using-Postman={}", test);
 			}
 	
 			if (validateAuthResponse(test, context)) {
-				return Action.goTo(SUCCESS_OUTCOME)
-						.replaceSharedState(context.sharedState)				
-						.build();
+				return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.TRUE_OUTCOME.name()).build();
 			}
-			return Action.goTo(FALSE_OUTCOME).build();
+			return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.FALSE_OUTCOME.name()).build();
 		}
 		catch (Exception ex) {
             logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
             ex.printStackTrace();
-            context.sharedState.put(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
-            return Action.goTo(ERROR_OUTCOME).build();
+            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+            return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}
 	}
@@ -112,13 +103,13 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 	private boolean validateAuthResponse(String authResponse, TreeContext context) throws Exception {
 
 		// Call API to check status. Return true, false or pending get the authHref value from sharedState
-		String authHref = context.sharedState.get(IdxCommon.IDX_HREF_KEY).asString();
+		String authHref = context.getStateFor(this).get(IdxCommon.IDX_HREF_KEY).asString();
 				
 		try {
 			
 			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);			
 			
-			AuthenticationRequest request = tenantRepoFactory.getAuthenticationRequestRepo().get(authHref);
+			AuthenticationRequest request = tenantRepoFactory.getAuthenticationRequestRepo().get(authHref, IdxCommon.getAccessToken(context, this));
 			
 			if (request == null) {
 				logger.error(loggerPrefix + "AuthRequest Href = {} is invalid", authHref);
@@ -127,15 +118,15 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			
 			request.setFidoAuthenticationResponse(authResponse);
 			
-			request = tenantRepoFactory.getAuthenticationRequestRepo().update(request);
+			request = tenantRepoFactory.getAuthenticationRequestRepo().update(request, IdxCommon.getAccessToken(context, this));
 			
 			logger.debug(loggerPrefix + "Checking Status=[{}]", nodeConfig.expectedStatus());
 			
 			if (request.getStatus() == nodeConfig.expectedStatus()) {
 				logger.debug(loggerPrefix + "Success Status=[{}]", nodeConfig.expectedStatus());
-				context.sharedState.put(IdxCommon.IDX_HREF_KEY, request.getHref());
+				 context.getStateFor(this).putShared(IdxCommon.IDX_HREF_KEY, request.getHref());
 				//Required for 'Daon ADoS SRP Passcode Authenticator' [D409#9302|D409#8302]
-				context.sharedState.put(IdxCommon.IDX_AUTH_RESPONSE_KEY, request.getFidoAuthenticationResponse());
+				 context.getStateFor(this).putShared(IdxCommon.IDX_AUTH_RESPONSE_KEY, request.getFidoAuthenticationResponse());
 				return true;
 			}
 			
@@ -148,18 +139,35 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 		}
 	}
 	
-    public static final class OutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+	
+	/**
+	 * The possible outcomes for the IdxSponsor node.
+	 */
+	public enum IdxMobileValidateAuthRequestNodeOutcome {
+		/**
+		 * Successful Found User.
+		 */
+		TRUE_OUTCOME,
+		/**
+		 * Did not find User.
+		 */
+		FALSE_OUTCOME,
+		/**
+		 * Error occured. Need to check sharedstate for issue
+		 */
+		ERROR_OUTCOME
+	}
+	
+	
+    public static class IdxMobileValidateAuthRequestNodeOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
         @Override
         public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
-            List<Outcome> results = new ArrayList<>(
-                    Arrays.asList(
-                            new Outcome(SUCCESS_OUTCOME, SUCCESS_OUTCOME)
-                    )
-            );
-            results.add(new Outcome(FALSE_OUTCOME, FALSE_OUTCOME));
-            results.add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
-
-            return Collections.unmodifiableList(results);
+			ResourceBundle bundle = locales.getBundleInPreferredLocale(BUNDLE,
+					IdxMobileValidateAuthRequestNodeOutcomeProvider.class.getClassLoader());
+			return ImmutableList.of(
+					new Outcome(IdxMobileValidateAuthRequestNodeOutcome.TRUE_OUTCOME.name(), bundle.getString("trueOutcome")),
+					new Outcome(IdxMobileValidateAuthRequestNodeOutcome.FALSE_OUTCOME.name(), bundle.getString("falseOutcome")),
+					new Outcome(IdxMobileValidateAuthRequestNodeOutcome.ERROR_OUTCOME.name(), bundle.getString("errorOutcome")));
         }
     }
 }

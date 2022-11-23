@@ -16,6 +16,7 @@ import java.util.Map;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.forgerock.http.util.Json;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.NodeState;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.utils.StringUtils;
 
@@ -29,6 +30,7 @@ import com.identityx.clientSDK.collections.UserCollection;
 import com.identityx.clientSDK.credentialsProviders.SimpleCredentialsProvider;
 import com.identityx.clientSDK.queryHolders.UserQueryHolder;
 import com.identityx.clientSDK.repositories.UserRepository;
+import org.forgerock.openam.auth.node.api.Node;
 
 class IdxCommon {
 
@@ -68,7 +70,7 @@ class IdxCommon {
 		
 
 		String identityCloudURL = context.request.serverUrl + "/oauth2/alpha/access_token";
-		logger.error("Justin here is the identityCloudURL: " + identityCloudURL);
+		logger.error("Here is the identityCloudURL: " + identityCloudURL);
 		
 		
 		String accessToken = getAccessToken(theClientID, theClientSecret, identityCloudURL);
@@ -178,11 +180,25 @@ class IdxCommon {
 		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
 		if (response != null && response.statusCode() == 200 && response.body().contains("access_token")) {
-			LinkedHashMap something = (LinkedHashMap) Json.readJson(response.body());
-			retVal = (String) something.get("access_token");
+			LinkedHashMap responseBody = (LinkedHashMap) Json.readJson(response.body());
+			retVal = (String) responseBody.get("access_token");
 		}
 		return retVal;
 	}
+	
+	public static HashMap<String, String> getAccessToken(TreeContext context, Node thisNode) throws Exception {
+		NodeState newState = context.getStateFor(thisNode);
+		String clientID = newState.get("IdxClientID").asString();
+		String clientSecret = newState.get("IdxClientSecret").asString();
+		String identityCloudURL = context.request.serverUrl + "/oauth2/alpha/access_token";
+		String retVal = getAccessToken(clientID,clientSecret,identityCloudURL);
+		HashMap<String, String> requestHeaders = new HashMap<>();
+		requestHeaders.put("Authorization", retVal);
+		
+		return requestHeaders;
+	}
+	
+	
 
 	private static HttpRequest.BodyPublisher buildFormDataFromMap(Map<Object, Object> data) {
 		var builder = new StringBuilder();
