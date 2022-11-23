@@ -14,16 +14,33 @@
  * Copyright 2018 ForgeRock AS.
  */
 
-
 package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 import static com.daon.idxAuthRequestNode.IdxCommon.objectMapper;
 
+import java.io.IOException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ResourceBundle;
+import java.util.UUID;
+
+import javax.inject.Inject;
+
+import org.forgerock.json.JsonValue;
+import org.forgerock.openam.annotations.sm.Attribute;
+import org.forgerock.openam.auth.node.api.Action;
+import org.forgerock.openam.auth.node.api.Node;
+import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.TreeContext;
+import org.forgerock.util.i18n.PreferredLocales;
+
 import com.daon.identityx.rest.model.def.PolicyStatusEnum;
 import com.daon.identityx.rest.model.def.TransactionPushNotificationTypeEnum;
 import com.daon.identityx.rest.model.pojo.AuthenticationRequest;
 import com.daon.identityx.rest.model.pojo.User;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.identityx.clientSDK.TenantRepoFactory;
 import com.identityx.clientSDK.collections.ApplicationCollection;
@@ -35,18 +52,16 @@ import com.identityx.clientSDK.repositories.ApplicationRepository;
 import com.identityx.clientSDK.repositories.AuthenticationRequestRepository;
 import com.identityx.clientSDK.repositories.PolicyRepository;
 import com.sun.identity.sm.RequiredValueValidator;
-import java.io.IOException;
-import java.util.UUID;
-import javax.inject.Inject;
-import org.forgerock.json.JsonValue;
-import org.forgerock.openam.annotations.sm.Attribute;
-import org.forgerock.openam.auth.node.api.*;
 
 /**
  * A node that initiates an authentication request to IdentityX
  */
-@Node.Metadata(outcomeProvider = SingleOutcomeNode.OutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"mfa", "multi-factor authentication"})
-public class IdxAuthRequestNode extends SingleOutcomeNode {
+@Node.Metadata(outcomeProvider = IdxAuthRequestNode.IdxAuthRequestOutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication" })
+public class IdxAuthRequestNode implements Node {
+
+	private String loggerPrefix = "[IdentityX Auth Request Initiator Node][Marketplace] ";
+
+	private static final String BUNDLE = IdxAuthRequestNode.class.getName();
 
 	/**
 	 * Configuration for the node.
@@ -54,32 +69,36 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 	public interface Config {
 		/**
 		 * the IdentityX policy which should be used for authentication
+		 * 
 		 * @return the policy name
 		 */
-		@Attribute(order = 100, validators = {RequiredValueValidator.class})
+		@Attribute(order = 100, validators = { RequiredValueValidator.class })
 		String policyName();
 
 		/**
 		 * the IdentityX application to be used
+		 * 
 		 * @return the application Id
 		 */
-		@Attribute(order = 200, validators = {RequiredValueValidator.class})
+		@Attribute(order = 200, validators = { RequiredValueValidator.class })
 		String applicationId();
 
 		/**
 		 * the IdenitityX request type (IX, FI)
+		 * 
 		 * @return the request type
 		 */
-		@Attribute(order = 300, validators = {RequiredValueValidator.class})
+		@Attribute(order = 300, validators = { RequiredValueValidator.class })
 		default boolean isFidoRequest() {
 			return true;
 		}
 
 		/**
 		 * option to send push notifications
+		 * 
 		 * @return true or false
 		 */
-		@Attribute(order = 400, validators = {RequiredValueValidator.class})
+		@Attribute(order = 400, validators = { RequiredValueValidator.class })
 		default boolean sendPushNotification() {
 			return true;
 		}
@@ -88,48 +107,57 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 	private final Config config;
 	private static LoggerWrapper logger = new LoggerWrapper();
 
-    /**
-     * Create the node.
+	/**
+	 * Create the node.
 	 */
-    @Inject
-    public IdxAuthRequestNode(@Assisted Config config) {
+	@Inject
+	public IdxAuthRequestNode(@Assisted Config config) {
 		this.config = config;
 	}
 
-    @Override
-    public Action process(TreeContext context) throws NodeProcessException {
-    	User user;
+	@Override
+	public Action process(TreeContext context) {
+		User user;
+
 		try {
-			user = objectMapper.readValue(context.sharedState.get(IdxCommon.IDX_USER_KEY).asString(), User.class);
-		} catch (IOException e) {
-			logger.error("Can't find user in SharedState");
-			throw new NodeProcessException(e);
+			try {
+				user = objectMapper.readValue(context.getStateFor(this).get(IdxCommon.IDX_USER_KEY).asString(),
+						User.class);
+			} catch (IOException e) {
+				logger.error(loggerPrefix + "Can't find user in SharedState");
+				throw new NodeProcessException(e);
+			}
+
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+			logger.debug(loggerPrefix + "Connected to the IdentityX Server");
+
+			String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory, context);
+			logger.debug(loggerPrefix + "Auth href: " + authHref);
+
+			// Place the href value in sharedState
+			logger.debug(loggerPrefix + "Setting auth URL in shared state...");
+			context.getStateFor(this).putShared(IdxCommon.IDX_HREF_KEY, authHref);
+
+			return Action.goTo(IdxAuthRequestOutcome.NEXT_OUTCOME.name()).build();
+		} catch (Exception ex) {
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
+			logger.error(loggerPrefix + ex.getStackTrace());
+			ex.printStackTrace();
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			return Action.goTo(IdxAuthRequestOutcome.ERROR_OUTCOME.name()).build();
 		}
+	}
 
-		TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
-		logger.debug("Connected to the IdentityX Server");
-
-		String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory);
-		logger.debug("Auth href: " + authHref);
-
-    	//Place the href value in sharedState
-    	logger.debug("Setting auth URL in shared state...");
-		JsonValue newState = context.sharedState.copy().put(IdxCommon.IDX_HREF_KEY, authHref);
-
-    	return goToNext().replaceSharedState(newState).build();
-    }
-
-	private String generateAuthenticationRequest(User user, String policyName, TenantRepoFactory
-		   tenantRepoFactory) throws NodeProcessException {
+	private String generateAuthenticationRequest(User user, String policyName, TenantRepoFactory tenantRepoFactory, TreeContext context)
+			throws Exception {
 
 		AuthenticationRequest request = new AuthenticationRequest();
 		if (user == null) {
-			String error = "Error retrieving user";
+			String error = loggerPrefix + "Error retrieving user";
 			logger.error(error);
 			throw new NodeProcessException(error);
-		}
-		else {
-			logger.debug("User found with ID " + user.getUserId());
+		} else {
+			logger.debug(loggerPrefix + "User found with ID " + user.getUserId());
 			request.setUser(user);
 		}
 
@@ -137,19 +165,21 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 		holder.getSearchSpec().setPolicyId(policyName);
 		holder.getSearchSpec().setStatus(PolicyStatusEnum.ACTIVE);
 		PolicyRepository policyRepo = tenantRepoFactory.getPolicyRepo();
-		PolicyCollection policyCollection;
+		PolicyCollection policyCollection;		
+		
 		try {
-			policyCollection = policyRepo.list(holder);
+			//policyCollection = policyRepo.list(holder);
+			policyCollection = policyRepo.list(holder, (HashMap<String, String>) IdxCommon.getAccessToken(context,this));
 		} catch (IdxRestException e) {
 			throw new NodeProcessException(e);
 		}
-		if(policyCollection.getItems().length > 0) {
-			logger.debug("Setting Policy On Authentication Request");
+		if (policyCollection.getItems().length > 0) {
+			logger.debug(loggerPrefix + "Setting Policy On Authentication Request");
 			request.setPolicy(policyCollection.getItems()[0]);
-		}
-		else {
-			logger.error("Could not find an active policy with the PolicyId: " + policyName);
-			throw new NodeProcessException("Could not find an active policy with the PolicyId: " + policyName);
+		} else {
+			logger.error(loggerPrefix + "Could not find an active policy with the PolicyId: " + policyName);
+			throw new NodeProcessException(
+					loggerPrefix + "Could not find an active policy with the PolicyId: " + policyName);
 		}
 
 		String appId = config.applicationId();
@@ -158,17 +188,16 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 		applicationQueryHolder.getSearchSpec().setApplicationId(appId);
 		ApplicationCollection applicationCollection;
 		try {
-			applicationCollection = applicationRepo.list(applicationQueryHolder);
+			applicationCollection = applicationRepo.list(applicationQueryHolder, (HashMap<String, String>) IdxCommon.getAccessToken(context,this));
 		} catch (IdxRestException e) {
 			throw new NodeProcessException(e);
 		}
 
 		if (applicationCollection.getItems().length > 0) {
 			request.setApplication(applicationCollection.getItems()[0]);
-		}
-		else {
-			logger.debug("No Application was found with this name " + appId);
-			throw new NodeProcessException("No Application was found with this name " + appId);
+		} else {
+			logger.debug(loggerPrefix + "No Application was found with this name " + appId);
+			throw new NodeProcessException(loggerPrefix + "No Application was found with this name " + appId);
 		}
 
 		request.setDescription("OpenAM has Requested an Authentication.");
@@ -187,14 +216,37 @@ public class IdxAuthRequestNode extends SingleOutcomeNode {
 
 		AuthenticationRequestRepository authenticationRequestRepo = tenantRepoFactory.getAuthenticationRequestRepo();
 		try {
-			request = authenticationRequestRepo.create(request);
+			request = authenticationRequestRepo.create(request, (HashMap<String, String>) IdxCommon.getAccessToken(context,this));
 		} catch (IdxRestException e) {
-			logger.debug("Error creating authentication request for user: " + user.getUserId());
+			logger.debug(loggerPrefix + "Error creating authentication request for user: " + user.getUserId());
 			throw new NodeProcessException(e);
 		}
-		logger.debug("Added an authentication request, - authRequestId: {}" + request.getId());
+		logger.debug(loggerPrefix + "Added an authentication request, - authRequestId: {}" + request.getId());
 		return request.getHref();
 	}
 
+	/**
+	 * The possible outcomes for the IdxSponsor node.
+	 */
+	public enum IdxAuthRequestOutcome {
+		/**
+		 * Successful Found User.
+		 */
+		NEXT_OUTCOME,
+		/**
+		 * Error occured. Need to check sharedstate for issue
+		 */
+		ERROR_OUTCOME
+	}
 
+	public static class IdxAuthRequestOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
+		@Override
+		public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
+			ResourceBundle bundle = locales.getBundleInPreferredLocale(BUNDLE,
+					IdxAuthRequestOutcomeProvider.class.getClassLoader());
+			return ImmutableList.of(
+					new Outcome(IdxAuthRequestOutcome.NEXT_OUTCOME.name(), bundle.getString("nextOutcome")),
+					new Outcome(IdxAuthRequestOutcome.ERROR_OUTCOME.name(), bundle.getString("errorOutcome")));
+		}
+	}
 }
