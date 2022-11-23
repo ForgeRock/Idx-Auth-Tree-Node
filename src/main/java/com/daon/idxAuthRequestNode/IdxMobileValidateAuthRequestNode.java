@@ -79,7 +79,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 				}
 			}
 	
-			logger.debug("Test={}", test);
+			logger.debug(loggerPrefix + "Test={}", test);
 	
 			if (TextUtils.isEmpty(test) || !isJsonOk) {
 				test = context.getStateFor(this).get(IdxCommon.IDX_AUTH_RESPONSE_KEY).asString();
@@ -107,7 +107,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 				
 		try {
 			
-			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);			
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);			
 			
 			AuthenticationRequest request = tenantRepoFactory.getAuthenticationRequestRepo().get(authHref, IdxCommon.getAccessToken(context, this));
 			

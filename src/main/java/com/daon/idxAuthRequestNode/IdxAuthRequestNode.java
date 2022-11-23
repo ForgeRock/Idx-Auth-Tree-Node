@@ -128,7 +128,7 @@ public class IdxAuthRequestNode implements Node {
 				throw new NodeProcessException(e);
 			}
 
-			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context);
+			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);
 			logger.debug(loggerPrefix + "Connected to the IdentityX Server");
 
 			String authHref = generateAuthenticationRequest(user, config.policyName(), tenantRepoFactory, context);
@@ -141,7 +141,6 @@ public class IdxAuthRequestNode implements Node {
 			return Action.goTo(IdxAuthRequestOutcome.NEXT_OUTCOME.name()).build();
 		} catch (Exception ex) {
 			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-			logger.error(loggerPrefix + ex.getStackTrace());
 			ex.printStackTrace();
 			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
 			return Action.goTo(IdxAuthRequestOutcome.ERROR_OUTCOME.name()).build();

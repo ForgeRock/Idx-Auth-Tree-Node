@@ -180,7 +180,7 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 		
 		logger.debug(loggerPrefix + "UserId={} ApplicationId={} Policy={}", request.getUser().getUserId(), request.getApplication().getApplicationId(), request.getPolicy().getPolicyId());
 		
-		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context);
+		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context, this);
 		
 		try {
 			request = tenantRepoFactory.getAuthenticationRequestRepo().create(request, IdxCommon.getAccessToken(context, this));
@@ -197,7 +197,7 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 		
 		logger.info(loggerPrefix + "Entering getAuthRequest");
 		
-		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context);
+		TenantRepoFactory tenantRepoFactory = IdxCommon.getTenantRepoFactory(context, this);
 		
 		logger.debug(loggerPrefix + "AuthRequestHref={}", authRequestHref);
 		
