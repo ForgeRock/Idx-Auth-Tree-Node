@@ -141,11 +141,7 @@ public class IdxSponsorUser implements Node {
 					sharedState.remove(IDX_SPONSORSHIP_HREF);
 					sharedState.remove(IDX_QR_KEY);
 					return goTo(IdxSponsorOutcome.CANCEL.name()).build();
-				} else if (index == 1) {
-					logger.debug(loggerPrefix + "User clicked Email QR button");
-					// the false output should be wired to a node which sends the email
-					return goTo(IdxSponsorOutcome.EMAIL.name()).build();
-				}
+				} 
 			}
 
 			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);
@@ -211,10 +207,9 @@ public class IdxSponsorUser implements Node {
 				config.messageText());
 
 		String cancelString = "Cancel";
-		String emailString = "Email QR Code";
 		ConfirmationCallback confirmationCallback = new ConfirmationCallback(ConfirmationCallback.INFORMATION,
-				new String[] { cancelString, emailString }, 0);
-		confirmationCallback.setSelectedIndex(2);
+				new String[] { cancelString}, 0);
+		confirmationCallback.setSelectedIndex(1);
 
 		return send(Arrays.asList(textOutputCallback, qrCodeCallback,
 				new PollingWaitCallback(Integer.toString(config.pollingWaitInterval() * 1000),
@@ -300,6 +295,7 @@ public class IdxSponsorUser implements Node {
 			String authGatewayURL = request.getAuthenticationGatewayURL();
 			sponsorshipCodeUrl = "identityx://sponsor?SC=" + request.getSponsorshipToken() + "&KM=" + authGatewayURL
 					+ "&TC=";
+			sponsorshipCodeUrl = sponsorshipCodeUrl.replace("//api.", "//idx-api.");
 		}
 
 		return sponsorshipCodeUrl;
@@ -360,10 +356,6 @@ public class IdxSponsorUser implements Node {
 		 */
 		CANCEL,
 		/**
-		 * The end user pressed the email button
-		 */
-		EMAIL,
-		/**
 		 * Error occured. Need to check sharedstate for issue
 		 */
 		ERROR
@@ -380,7 +372,6 @@ public class IdxSponsorUser implements Node {
 			return ImmutableList.of(new Outcome(IdxSponsorOutcome.TRUE.name(), bundle.getString("trueOutcome")),
 					new Outcome(IdxSponsorOutcome.FALSE.name(), bundle.getString("falseOutcome")),
 					new Outcome(IdxSponsorOutcome.CANCEL.name(), bundle.getString("cancelOutcome")),
-					new Outcome(IdxSponsorOutcome.EMAIL.name(), bundle.getString("emailOutcome")),
 					new Outcome(IdxSponsorOutcome.ERROR.name(), bundle.getString("errorOutcome")));
 		}
 	}

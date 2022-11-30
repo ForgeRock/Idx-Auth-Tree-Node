@@ -12,6 +12,8 @@ class IdxTenantRepoFactorySingleton {
 	private static LoggerWrapper logger = new LoggerWrapper();
 
 	private static IdxTenantRepoFactorySingleton tenantRepoInstance = null;
+	
+	private static String baseURL = "";
 
 	public TenantRepoFactory tenantRepoFactory = null;
 
@@ -26,13 +28,14 @@ class IdxTenantRepoFactorySingleton {
 		RestClient restClient = new RestClient.RestClientBuilder().setRequestExecutor(requestExecutor).build();
 		tenantRepoFactory = new TenantRepoFactory.TenantRepoFactoryBuilder().setRestClient(restClient).setBaseUrl(provider.getBaseUrl()).build();
 
+		IdxTenantRepoFactorySingleton.baseURL = baseURL;
 		logger.info("Exiting IdxTenantRepoFactorySingleton");
 	}
 
 	static IdxTenantRepoFactorySingleton getInstance(String baseURL) throws Exception {
 		logger.info("Entering getInstance");
 
-		if (tenantRepoInstance == null) {
+		if (tenantRepoInstance == null || baseURL != IdxTenantRepoFactorySingleton.baseURL) {
 			logger.debug("TenantRepoFactory is null, creating new instance");
 			tenantRepoInstance = new IdxTenantRepoFactorySingleton(baseURL);
 		}
