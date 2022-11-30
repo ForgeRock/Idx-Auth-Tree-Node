@@ -295,7 +295,6 @@ public class IdxSponsorUser implements Node {
 			String authGatewayURL = request.getAuthenticationGatewayURL();
 			sponsorshipCodeUrl = "identityx://sponsor?SC=" + request.getSponsorshipToken() + "&KM=" + authGatewayURL
 					+ "&TC=";
-			sponsorshipCodeUrl = sponsorshipCodeUrl.replace("//api.", "//idx-api.");
 		}
 
 		return sponsorshipCodeUrl;
