@@ -18,6 +18,8 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.findUser;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Date;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -56,7 +58,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 @Node.Metadata(outcomeProvider = IdxCheckEnrollmentStatus.IdxCheckEnrollmentStatusOutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxCheckEnrollmentStatus implements Node {
 
-    private String loggerPrefix = "[IdentityX Check Enrollment Status Node][Marketplace] ";
+    private String loggerPrefix = "[IdentityX Check Enrollment Status][Marketplace] ";
 	
 	/**
 	 * Configuration for the node.
@@ -166,9 +168,12 @@ public class IdxCheckEnrollmentStatus implements Node {
 			logger.debug(loggerPrefix + "Exiting IdxCheckEnrollmentStatus process method");
 			return Action.goTo(IdxCheckEnrollmentStatusOutcome.TRUE_OUTCOME.name()).build();
 		} catch (Exception ex) {
-            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-            ex.printStackTrace();
-            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
             return Action.goTo(IdxCheckEnrollmentStatusOutcome.ERROR_OUTCOME.name()).build();
 
 		}

@@ -20,6 +20,8 @@ import static com.daon.idxAuthRequestNode.IdxCommon.IDX_HREF_KEY;
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 import static org.forgerock.openam.auth.node.api.Action.goTo;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Date;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -47,7 +49,7 @@ import com.identityx.clientSDK.repositories.AuthenticationRequestRepository;
 		"marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxAuthStatusNode implements Node {
 
-	private String loggerPrefix = "[IdentityX Auth Request Decision Node][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Auth Request Decision][Marketplace] ";
 	private static final String BUNDLE = IdxAuthStatusNode.class.getName();
 
 	private static LoggerWrapper logger = new LoggerWrapper();
@@ -102,9 +104,12 @@ public class IdxAuthStatusNode implements Node {
 				return goTo(IdxAuthStatusOutcome.FAILED_OUTCOME.name()).build();
 			}
 		} catch (Exception ex) {
-			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-			ex.printStackTrace();
-			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
 			return Action.goTo(IdxAuthStatusOutcome.ERROR_OUTCOME.name()).build();
 
 		}

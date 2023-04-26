@@ -4,6 +4,8 @@ import static org.forgerock.json.JsonValue.field;
 import static org.forgerock.json.JsonValue.json;
 import static org.forgerock.json.JsonValue.object;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -43,7 +45,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 @Node.Metadata(outcomeProvider = IdxMobileAuthRequestNode.IdxMobileAuthRequestNodeOutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 
-	private String loggerPrefix = "[IdentityX Mobile Auth Request Node][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request][Marketplace] ";
 	private static final String BUNDLE = IdxMobileAuthRequestNode.class.getName();
 	
 	/**
@@ -146,9 +148,12 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 			return Action.send(callbacks).build();
 		}
 		catch (Exception ex) {
-            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-            ex.printStackTrace();
-            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
             return Action.goTo(IdxMobileAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}

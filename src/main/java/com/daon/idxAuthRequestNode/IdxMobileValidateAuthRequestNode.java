@@ -2,6 +2,8 @@ package com.daon.idxAuthRequestNode;
 
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Date;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -34,7 +36,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
-	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate Node][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate][Marketplace] ";
 	private static final String BUNDLE = IdxMobileValidateAuthRequestNode.class.getName();
 	
 	public interface Config {
@@ -92,9 +94,12 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.FALSE_OUTCOME.name()).build();
 		}
 		catch (Exception ex) {
-            logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-            ex.printStackTrace();
-            context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
             return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}

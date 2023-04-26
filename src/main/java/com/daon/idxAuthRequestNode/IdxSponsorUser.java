@@ -4,6 +4,8 @@ import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 import static org.forgerock.openam.auth.node.api.Action.goTo;
 import static org.forgerock.openam.auth.node.api.Action.send;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -48,7 +50,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 		"marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxSponsorUser implements Node {
 
-	private String loggerPrefix = "[IdentityX Sponsor User Node][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Sponsor User][Marketplace] ";
 
 	/**
 	 * Configuration for the node.
@@ -181,9 +183,12 @@ public class IdxSponsorUser implements Node {
 			// Build the callbacks and decrement from our configured number of poll times
 			return buildResponse(sharedState);
 		} catch (Exception ex) {
-			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
-			ex.printStackTrace();
-			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.toString());
+			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
+			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
 			return Action.goTo(IdxSponsorOutcome.ERROR.name()).build();
 
 		}
