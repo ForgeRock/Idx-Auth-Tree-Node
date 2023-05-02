@@ -19,7 +19,6 @@ package com.daon.idxAuthRequestNode;
 import static com.daon.idxAuthRequestNode.IdxCommon.getTenantRepoFactory;
 import static com.daon.idxAuthRequestNode.IdxCommon.objectMapper;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Date;
@@ -122,13 +121,8 @@ public class IdxAuthRequestNode implements Node {
 		User user;
 
 		try {
-			try {
-				user = objectMapper.readValue(context.getStateFor(this).get(IdxCommon.IDX_USER_KEY).asString(),
-						User.class);
-			} catch (IOException e) {
-				logger.error(loggerPrefix + "Can't find user in SharedState");
-				throw new NodeProcessException(e);
-			}
+
+			user = objectMapper.readValue(context.getStateFor(this).get(IdxCommon.IDX_USER_KEY).asString(), User.class);
 
 			TenantRepoFactory tenantRepoFactory = getTenantRepoFactory(context, this);
 			logger.debug(loggerPrefix + "Connected to the IdentityX Server");
@@ -147,13 +141,13 @@ public class IdxAuthRequestNode implements Node {
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
 			ex.printStackTrace(pw);
-			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
+			context.getStateFor(this).putShared(loggerPrefix + "StackTrace", new Date() + ": " + sw.toString());
 			return Action.goTo(IdxAuthRequestOutcome.ERROR_OUTCOME.name()).build();
 		}
 	}
 
-	private String generateAuthenticationRequest(User user, String policyName, TenantRepoFactory tenantRepoFactory, TreeContext context)
-			throws Exception {
+	private String generateAuthenticationRequest(User user, String policyName, TenantRepoFactory tenantRepoFactory,
+			TreeContext context) throws Exception {
 
 		AuthenticationRequest request = new AuthenticationRequest();
 		if (user == null) {
@@ -169,14 +163,10 @@ public class IdxAuthRequestNode implements Node {
 		holder.getSearchSpec().setPolicyId(policyName);
 		holder.getSearchSpec().setStatus(PolicyStatusEnum.ACTIVE);
 		PolicyRepository policyRepo = tenantRepoFactory.getPolicyRepo();
-		PolicyCollection policyCollection;		
-		
-		try {
-			//policyCollection = policyRepo.list(holder);
-			policyCollection = policyRepo.list(holder, (HashMap<String, String>) IdxCommon.getAccessToken(context,this));
-		} catch (IdxRestException e) {
-			throw new NodeProcessException(e);
-		}
+		PolicyCollection policyCollection;
+
+		// policyCollection = policyRepo.list(holder);
+		policyCollection = policyRepo.list(holder, (HashMap<String, String>) IdxCommon.getAccessToken(context, this));
 		if (policyCollection.getItems().length > 0) {
 			logger.debug(loggerPrefix + "Setting Policy On Authentication Request");
 			request.setPolicy(policyCollection.getItems()[0]);

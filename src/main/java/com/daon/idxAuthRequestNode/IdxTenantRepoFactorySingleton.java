@@ -1,5 +1,7 @@
 package com.daon.idxAuthRequestNode;
 
+import java.util.Date;
+
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 
 import com.identityx.auth.client.HttpClientRequestExecutor;
@@ -14,13 +16,15 @@ class IdxTenantRepoFactorySingleton {
 	private static IdxTenantRepoFactorySingleton tenantRepoInstance = null;
 	
 	private static String baseURL = "";
+	
+	private static Date lastBuilt = null;
 
 	public TenantRepoFactory tenantRepoFactory = null;
 
 	private IdxTenantRepoFactorySingleton(String baseURL) throws Exception {
 
 		logger.info("Entering IdxTenantRepoFactorySingleton");
-
+		tenantRepoFactory = null;
 		SimpleCredentialsProvider provider = new SimpleCredentialsProvider(baseURL, null);
 		SSLConnectionSocketFactory socketFactory = SSLConnectionSocketFactory.getSocketFactory();
 		HttpClientRequestExecutor requestExecutor = new HttpClientRequestExecutor.HttpClientRequestExecutorBuilder().setApiKey(provider.getApiKey()).setSSLConnectionSocketFactory(socketFactory).setConnectionTimeout(50000).setMaxConnTotal(50).setMaxConnPerRoute(20).build();
@@ -34,10 +38,14 @@ class IdxTenantRepoFactorySingleton {
 
 	static IdxTenantRepoFactorySingleton getInstance(String baseURL) throws Exception {
 		logger.info("Entering getInstance");
-
-		if (tenantRepoInstance == null || baseURL != IdxTenantRepoFactorySingleton.baseURL) {
+		
+		
+		Date nowMinus59Seconds = new Date(new Date().getTime() - 59000);
+		
+		if (tenantRepoInstance == null || baseURL != IdxTenantRepoFactorySingleton.baseURL || lastBuilt == null || lastBuilt.before(nowMinus59Seconds)) {
 			logger.debug("TenantRepoFactory is null, creating new instance");
 			tenantRepoInstance = new IdxTenantRepoFactorySingleton(baseURL);
+			lastBuilt = new Date();
 		}
 
 		logger.info("Exiting getInstance");

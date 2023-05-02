@@ -153,7 +153,7 @@ public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
 			ex.printStackTrace(pw);
-			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
+			context.getStateFor(this).putShared(loggerPrefix + "StackTrace", new Date() + ": " + sw.toString());
             return Action.goTo(IdxMobileAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}

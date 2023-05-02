@@ -99,7 +99,7 @@ public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
 			ex.printStackTrace(pw);
-			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
+			context.getStateFor(this).putShared(loggerPrefix + "StackTrace", new Date() + ": " + sw.toString());
             return Action.goTo(IdxMobileValidateAuthRequestNodeOutcome.ERROR_OUTCOME.name()).build();
 
 		}
