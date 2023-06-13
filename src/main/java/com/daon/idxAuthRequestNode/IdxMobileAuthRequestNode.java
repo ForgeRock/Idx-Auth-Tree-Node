@@ -45,7 +45,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 @Node.Metadata(outcomeProvider = IdxMobileAuthRequestNode.IdxMobileAuthRequestNodeOutcomeProvider.class, configClass = IdxMobileAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication"})
 public class IdxMobileAuthRequestNode extends AbstractDecisionNode {
 
-	private String loggerPrefix = "[IdentityX Mobile Auth Request][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request]" + IdxAuthRequestNodePlugin.logAppender;
 	private static final String BUNDLE = IdxMobileAuthRequestNode.class.getName();
 	
 	/**

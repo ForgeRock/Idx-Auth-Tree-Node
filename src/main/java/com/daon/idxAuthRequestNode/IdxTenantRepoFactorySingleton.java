@@ -12,6 +12,8 @@ import com.identityx.clientSDK.credentialsProviders.SimpleCredentialsProvider;
 class IdxTenantRepoFactorySingleton {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
+	private static String loggerPrefix = "[IdentityX IdxTenantRepoFactorySingleton]" + IdxAuthRequestNodePlugin.logAppender;
+
 
 	private static IdxTenantRepoFactorySingleton tenantRepoInstance = null;
 	
@@ -23,7 +25,7 @@ class IdxTenantRepoFactorySingleton {
 
 	private IdxTenantRepoFactorySingleton(String baseURL) throws Exception {
 
-		logger.info("Entering IdxTenantRepoFactorySingleton");
+		logger.info(loggerPrefix + "Entering IdxTenantRepoFactorySingleton");
 		tenantRepoFactory = null;
 		SimpleCredentialsProvider provider = new SimpleCredentialsProvider(baseURL, null);
 		SSLConnectionSocketFactory socketFactory = SSLConnectionSocketFactory.getSocketFactory();
@@ -33,22 +35,22 @@ class IdxTenantRepoFactorySingleton {
 		tenantRepoFactory = new TenantRepoFactory.TenantRepoFactoryBuilder().setRestClient(restClient).setBaseUrl(provider.getBaseUrl()).build();
 
 		IdxTenantRepoFactorySingleton.baseURL = baseURL;
-		logger.info("Exiting IdxTenantRepoFactorySingleton");
+		logger.info(loggerPrefix + "Exiting IdxTenantRepoFactorySingleton");
 	}
 
 	static IdxTenantRepoFactorySingleton getInstance(String baseURL) throws Exception {
-		logger.info("Entering getInstance");
+		logger.info(loggerPrefix + "Entering getInstance");
 		
 		
 		Date nowMinus59Seconds = new Date(new Date().getTime() - 59000);
 		
 		if (tenantRepoInstance == null || baseURL != IdxTenantRepoFactorySingleton.baseURL || lastBuilt == null || lastBuilt.before(nowMinus59Seconds)) {
-			logger.debug("TenantRepoFactory is null, creating new instance");
+			logger.debug(loggerPrefix + "TenantRepoFactory is null, creating new instance");
 			tenantRepoInstance = new IdxTenantRepoFactorySingleton(baseURL);
 			lastBuilt = new Date();
 		}
 
-		logger.info("Exiting getInstance");
+		logger.info(loggerPrefix + "Exiting getInstance");
 		return tenantRepoInstance;
 	}
 }

@@ -58,7 +58,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 @Node.Metadata(outcomeProvider = IdxCheckEnrollmentStatus.IdxCheckEnrollmentStatusOutcomeProvider.class, configClass = IdxCheckEnrollmentStatus.Config.class, tags = { "marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxCheckEnrollmentStatus implements Node {
 
-    private String loggerPrefix = "[IdentityX Check Enrollment Status][Marketplace] ";
+    private String loggerPrefix = "[IdentityX Check Enrollment Status]" + IdxAuthRequestNodePlugin.logAppender;
 	
 	/**
 	 * Configuration for the node.

@@ -60,7 +60,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 @Node.Metadata(outcomeProvider = IdxAuthRequestNode.IdxAuthRequestOutcomeProvider.class, configClass = IdxAuthRequestNode.Config.class, tags = {"marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxAuthRequestNode implements Node {
 
-	private String loggerPrefix = "[IdentityX Auth Request Initiator][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Auth Request Initiator]" + IdxAuthRequestNodePlugin.logAppender;
 
 	private static final String BUNDLE = IdxAuthRequestNode.class.getName();
 

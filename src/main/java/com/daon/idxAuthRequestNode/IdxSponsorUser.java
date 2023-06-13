@@ -50,7 +50,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 		"marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxSponsorUser implements Node {
 
-	private String loggerPrefix = "[IdentityX Sponsor User][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Sponsor User]" + IdxAuthRequestNodePlugin.logAppender;
 
 	/**
 	 * Configuration for the node.

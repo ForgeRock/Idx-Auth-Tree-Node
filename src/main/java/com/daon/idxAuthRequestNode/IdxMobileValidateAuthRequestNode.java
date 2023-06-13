@@ -36,7 +36,7 @@ import com.sun.identity.sm.RequiredValueValidator;
 public class IdxMobileValidateAuthRequestNode extends AbstractDecisionNode {
 
 	private static LoggerWrapper logger = new LoggerWrapper();
-	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Mobile Auth Request Validate]" + IdxAuthRequestNodePlugin.logAppender;
 	private static final String BUNDLE = IdxMobileValidateAuthRequestNode.class.getName();
 	
 	public interface Config {

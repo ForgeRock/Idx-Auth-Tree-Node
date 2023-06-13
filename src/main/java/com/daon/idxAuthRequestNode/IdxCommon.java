@@ -37,6 +37,7 @@ class IdxCommon {
 	static ObjectMapper objectMapper = new ObjectMapper();
 
 	private static LoggerWrapper logger = new LoggerWrapper();
+	private static String loggerPrefix = "[IdentityX IdxCommon]" + IdxAuthRequestNodePlugin.logAppender;
 
 	static final String IDX_HREF_KEY = "idx-auth-ref-shared-state-key";
 	static final String IDX_USER_KEY = "idx-user-object-shared-state-key";
@@ -54,23 +55,23 @@ class IdxCommon {
 	static User findUser(String userId, TenantRepoFactory tenantRepoFactory, TreeContext context, String theClientID, String theClientSecret, String idxBaseURL) throws Exception {
 
 		if (theClientID == null) {
-			logger.error("Error: ClientID not in shared state!");
+			logger.error(loggerPrefix + "Error: ClientID not in shared state!");
 			throw new NodeProcessException("ClientID not in shared state!");
 		}
 		
 		if (theClientSecret == null) {
-			logger.error("Error: ClientSecret not in shared state!");
+			logger.error(loggerPrefix + "Error: ClientSecret not in shared state!");
 			throw new NodeProcessException("ClientSecret not in shared state!");
 		}
 		
 		if (idxBaseURL == null) {
-			logger.error("Error: idxBaseURL not in shared state!");
+			logger.error(loggerPrefix + "Error: idxBaseURL not in shared state!");
 			throw new NodeProcessException("idxBaseURL not in shared state!");
 		}
 		
 
 		String identityCloudURL = context.request.serverUrl + "/oauth2/alpha/access_token";
-		logger.error("Here is the identityCloudURL: " + identityCloudURL);
+		logger.error(loggerPrefix + "Here is the identityCloudURL: " + identityCloudURL);
 		
 		
 		String accessToken = getAccessToken(theClientID, theClientSecret, identityCloudURL);
@@ -108,8 +109,8 @@ class IdxCommon {
 			return userCollection.getItems()[0];
 		default:
 			String error = "More than one Daon user with the same UserId";
-			logger.error(error);
-			throw new NodeProcessException(error);
+			logger.error(loggerPrefix + error);
+			throw new NodeProcessException(loggerPrefix + error);
 		}
 	}
 
@@ -119,17 +120,17 @@ class IdxCommon {
 		String theBaseURL = context.getStateFor(theNode).get("IdxBaseURL").asString();
 		
 		if (theBaseURL == null) {
-			logger.error("Error: The Base URL was not in the shared state!");
-			throw new NodeProcessException("The Base URL was not in the shared state!");
+			logger.error(loggerPrefix + "Error: The Base URL was not in the shared state!");
+			throw new NodeProcessException(loggerPrefix + "The Base URL was not in the shared state!");
 		}
 
 		tenantRepoFactory = IdxTenantRepoFactorySingleton.getInstance(theBaseURL).tenantRepoFactory;
 
 		if (tenantRepoFactory != null) {
-			logger.debug("Successfully Initialised the TenantRepoFactory");
+			logger.debug(loggerPrefix + "Successfully Initialised the TenantRepoFactory");
 		} else {
-			logger.error("Failure to Initialised the TenantRepoFactory");
-			throw new NodeProcessException("Error creating tenantRepoFactory");
+			logger.error(loggerPrefix + "Failure to Initialised the TenantRepoFactory");
+			throw new NodeProcessException(loggerPrefix + "Error creating tenantRepoFactory");
 		}
 
 		return tenantRepoFactory;
@@ -159,11 +160,11 @@ class IdxCommon {
 				}
 
 			} catch (MalformedURLException ex) {
-				logger.error("getServerName Exception", ex);
+				logger.error(loggerPrefix + "getServerName Exception", ex);
 			}
 		}
 
-		logger.info("Exiting getServerName");
+		logger.info(loggerPrefix + "Exiting getServerName");
 		return server;
 	}
 
@@ -256,7 +257,7 @@ class IdxCommon {
 		case 1:
 			return userCollection.getItems()[0];
 		default:
-			String error = "More than one Daon user with the same UserId";
+			String error = loggerPrefix + "More than one Daon user with the same UserId";
 			logger.error(error);
 			throw new NodeProcessException(error);
 		}

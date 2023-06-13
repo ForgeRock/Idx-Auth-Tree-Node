@@ -49,7 +49,7 @@ import com.identityx.clientSDK.repositories.AuthenticationRequestRepository;
 		"marketplace", "trustnetwork", "multi-factor authentication" })
 public class IdxAuthStatusNode implements Node {
 
-	private String loggerPrefix = "[IdentityX Auth Request Decision][Marketplace] ";
+	private String loggerPrefix = "[IdentityX Auth Request Decision]" + IdxAuthRequestNodePlugin.logAppender;
 	private static final String BUNDLE = IdxAuthStatusNode.class.getName();
 
 	private static LoggerWrapper logger = new LoggerWrapper();
