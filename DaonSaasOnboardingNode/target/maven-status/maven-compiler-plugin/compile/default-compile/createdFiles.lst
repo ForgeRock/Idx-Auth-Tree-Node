@@ -1,0 +1,4 @@
+com\daon\saas\onboarding\DaonSaasOnboardingNode\DaonSaasOnboardingNodePlugin.class
+com\daon\saas\onboarding\DaonSaasOnboardingNode\DaonSaasOnboardingConstants.class
+com\daon\saas\onboarding\DaonSaasOnboardingNode\DaonSaasOnboardingNode$Config.class
+com\daon\saas\onboarding\DaonSaasOnboardingNode\DaonSaasOnboardingNode.class
