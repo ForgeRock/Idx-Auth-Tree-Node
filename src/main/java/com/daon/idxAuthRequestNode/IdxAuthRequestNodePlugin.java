@@ -67,7 +67,7 @@ public class IdxAuthRequestNodePlugin extends AbstractNodeAmPlugin {
 	@Override
 	protected Map<String, Iterable<? extends Class<? extends Node>>> getNodesByVersion() {
 		return Collections.singletonMap(IdxAuthRequestNodePlugin.currentVersion, 
-				Arrays.asList(IdxAuthRequestNode.class, IdxAuthStatusNode.class, IdxCheckEnrollmentStatus.class,
+				Arrays.asList(DaonIDVNode.class, IdxAuthRequestNode.class, IdxAuthStatusNode.class, IdxCheckEnrollmentStatus.class,
 						 IdxSponsorUser.class, IdxMobileAuthRequestNode.class, IdxMobileValidateAuthRequestNode.class));
 	}
 
@@ -83,6 +83,7 @@ public class IdxAuthRequestNodePlugin extends AbstractNodeAmPlugin {
 	public void upgrade(String fromVersion) throws PluginException {
 		
 		//Force Upgrade of Nodes, requires changing currentVersion=
+		pluginTools.upgradeAuthNode(DaonIDVNode.class);
 		pluginTools.upgradeAuthNode(IdxCheckEnrollmentStatus.class);
 		pluginTools.upgradeAuthNode(IdxMobileAuthRequestNode.class);
 		pluginTools.upgradeAuthNode(IdxMobileValidateAuthRequestNode.class);

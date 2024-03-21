@@ -12,7 +12,8 @@ Copy the jar file into the ../web-container/webapps/openam/WEB-INF/lib directory
 
 ## USING THE NODES IN YOUR TREE ##
 
-### There are 6 nodes included ###
+### There are 7 nodes included ###
+- **Daon IDV Node** This node redirects to the TrustX platform, where the user will go through the process of taking a selfie and scanning their documents for Identity Verification. When IDV is complete, successful or not, the flow will redirect to the configured redirect URI.
 - **IdentityX Check Enrollment Status** This node makes a REST API call to IdentityX to ensure the username provided is enrolled. This node contains the configuration parameters for the IdentityX Rest Services, so it is required to be added to the tree in order for the other nodes to work.
 - **IdentityX Auth Request Initiator** This node makes a REST API call to IdentityX to generate an authentication request for an 
 out of band authentication flow.
@@ -28,6 +29,15 @@ request for an end user authenticating on a mobile device, and passes it to the 
 The nodes must be configured to connect to an IdentityX server. Contact your Daon representative for connection details.
 
 ### Configuration Parameters ###
+Daon IDV Node contains the following configurable parameters:
+- **Tenant** The tenant name of the TrustX instance being used
+- **Region** The region name of the TrustX instance being used
+- **API Key** The key needed to invoke TrustX API calls
+- **Process Definition Name** The name of the TrustX process definition to use for IDV
+- **Process Definition Version** The version number of the process definition to use for IDV 
+- **Redirect URI** When IDV is complete, TrustX will redirect here (this should be the URI of the node)
+- **Get User Data** Whether to retrieve user data from TrustX
+
 IdentityX Check Enrollment Status contains the following configurable parameters:
 - **pathToKeyStore** full path to the .jks keystore file
 - **pathToCredentialProperties** full path to the credential.properties file
